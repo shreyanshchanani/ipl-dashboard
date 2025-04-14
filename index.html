@@ -271,6 +271,82 @@
             border-top: 1px solid #eee;
             background-color: white;
         }
+        /* Dashboard Styles */
+        #dashboard-container {
+            padding: 20px;
+            background: white;
+            border-radius: 8px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+            margin-top: 20px;
+        }
+
+        .dashboard-status {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 20px;
+            padding: 10px;
+            background: #f8f9fa;
+            border-radius: 4px;
+        }
+
+        .dashboard-error {
+            padding: 10px;
+            margin: 10px 0;
+            background-color: #fee;
+            color: #c00;
+            border-radius: 4px;
+            border: 1px solid #fcc;
+        }
+
+        .dashboard-error.hidden {
+            display: none;
+        }
+
+        .dashboard-content {
+            overflow-x: auto;
+        }
+
+        .dashboard-table {
+            width: 100%;
+            border-collapse: collapse;
+            margin-top: 10px;
+        }
+
+        .dashboard-table th,
+        .dashboard-table td {
+            padding: 12px;
+            text-align: left;
+            border-bottom: 1px solid #eee;
+        }
+
+        .dashboard-table th {
+            background-color: #f8f9fa;
+            font-weight: 600;
+        }
+
+        .dashboard-table tr:hover {
+            background-color: #f8f9fa;
+        }
+
+        .loading {
+            text-align: center;
+            padding: 20px;
+            color: #666;
+        }
+
+        .secondary-button {
+            background-color: #6c757d;
+            color: white;
+            border: none;
+            padding: 8px 16px;
+            border-radius: 4px;
+            cursor: pointer;
+        }
+
+        .secondary-button:hover {
+            background-color: #5a6268;
+        }
     </style>
 </head>
 <body>
@@ -1890,6 +1966,204 @@
                 console.error('Error rendering player card:', error);
             }
         }
+
+        // Dashboard Module
+        const Dashboard = (() => {
+            let cacheTimeout = 60000; // 1 minute cache timeout
+            let matchCache = new Map();
+            
+            function initialize() {
+                try {
+                    console.log('Initializing dashboard...');
+                    setupDashboardElements();
+                    setupEventListeners();
+                    loadDashboard();
+                } catch (error) {
+                    console.error('Error initializing dashboard:', error);
+                    showErrorMessage('Failed to initialize dashboard. Please refresh the page.');
+                }
+            }
+            
+            function setupDashboardElements() {
+                // Create dashboard container if it doesn't exist
+                let dashboardContainer = document.getElementById('dashboard-container');
+                if (!dashboardContainer) {
+                    dashboardContainer = document.createElement('div');
+                    dashboardContainer.id = 'dashboard-container';
+                    document.querySelector('main').appendChild(dashboardContainer);
+                }
+                
+                // Create status elements
+                const statusHtml = `
+                    <div id="dashboard-status" class="dashboard-status">
+                        <div id="cache-status">Cache: 0 matches</div>
+                        <div id="last-update">Last updated: less than 1 minute ago</div>
+                        <button id="clear-cache" class="secondary-button">Clear Cache</button>
+                    </div>
+                    <div id="dashboard-error" class="dashboard-error hidden"></div>
+                    <div id="dashboard-content" class="dashboard-content"></div>
+                `;
+                
+                dashboardContainer.innerHTML = statusHtml;
+            }
+            
+            function setupEventListeners() {
+                const clearCacheButton = document.getElementById('clear-cache');
+                if (clearCacheButton) {
+                    clearCacheButton.addEventListener('click', () => {
+                        clearCache();
+                        loadDashboard();
+                    });
+                }
+            }
+            
+            function loadDashboard() {
+                try {
+                    const dashboardContent = document.getElementById('dashboard-content');
+                    if (!dashboardContent) {
+                        throw new Error('Dashboard content element not found');
+                    }
+                    
+                    // Show loading state
+                    dashboardContent.innerHTML = '<div class="loading">Loading dashboard data...</div>';
+                    
+                    // Update cache status
+                    updateCacheStatus();
+                    
+                    // Load and display data
+                    loadAndDisplayData();
+                } catch (error) {
+                    console.error('Error loading dashboard:', error);
+                    showErrorMessage('Error loading dashboard data. Please try again.');
+                }
+            }
+            
+            function loadAndDisplayData() {
+                try {
+                    const dashboardContent = document.getElementById('dashboard-content');
+                    if (!dashboardContent) {
+                        throw new Error('Dashboard content element not found');
+                    }
+                    
+                    // Clear existing content
+                    dashboardContent.innerHTML = '';
+                    
+                    // Create table structure
+                    const table = document.createElement('table');
+                    table.className = 'dashboard-table';
+                    
+                    // Add table header
+                    const thead = document.createElement('thead');
+                    thead.innerHTML = `
+                        <tr>
+                            <th>Player</th>
+                            <th>Team</th>
+                            <th>Matches</th>
+                            <th>Runs</th>
+                            <th>Wickets</th>
+                            <th>Points</th>
+                        </tr>
+                    `;
+                    table.appendChild(thead);
+                    
+                    // Add table body
+                    const tbody = document.createElement('tbody');
+                    table.appendChild(tbody);
+                    
+                    // Add table to dashboard
+                    dashboardContent.appendChild(table);
+                    
+                    // Load player data
+                    loadPlayerData(tbody);
+                } catch (error) {
+                    console.error('Error setting up dashboard table:', error);
+                    showErrorMessage('Error displaying dashboard data. Please try again.');
+                }
+            }
+            
+            function loadPlayerData(tbody) {
+                if (!tbody) return;
+                
+                try {
+                    // Get all players
+                    dbRefs.players.once('value')
+                        .then(snapshot => {
+                            const players = snapshot.val();
+                            if (!players) {
+                                throw new Error('No player data available');
+                            }
+                            
+                            // Sort players by points
+                            const sortedPlayers = Object.values(players)
+                                .sort((a, b) => (b.score || 0) - (a.score || 0));
+                            
+                            // Clear existing rows
+                            tbody.innerHTML = '';
+                            
+                            // Add player rows
+                            sortedPlayers.forEach(player => {
+                                const row = document.createElement('tr');
+                                row.innerHTML = `
+                                    <td>${player.name || 'Unknown'}</td>
+                                    <td>${player.team || '-'}</td>
+                                    <td>${player.matches || 0}</td>
+                                    <td>${player.runs || 0}</td>
+                                    <td>${player.wickets || 0}</td>
+                                    <td>${(player.score || 0).toFixed(1)}</td>
+                                `;
+                                tbody.appendChild(row);
+                            });
+                            
+                            updateCacheStatus();
+                        })
+                        .catch(error => {
+                            console.error('Error loading player data:', error);
+                            showErrorMessage('Error loading player data. Please try again.');
+                        });
+                } catch (error) {
+                    console.error('Error in loadPlayerData:', error);
+                    showErrorMessage('Error loading player data. Please try again.');
+                }
+            }
+            
+            function updateCacheStatus() {
+                const cacheStatus = document.getElementById('cache-status');
+                const lastUpdate = document.getElementById('last-update');
+                
+                if (cacheStatus) {
+                    cacheStatus.textContent = `Cache: ${matchCache.size} matches`;
+                }
+                
+                if (lastUpdate) {
+                    lastUpdate.textContent = 'Last updated: less than 1 minute ago';
+                }
+            }
+            
+            function showErrorMessage(message) {
+                const errorElement = document.getElementById('dashboard-error');
+                if (errorElement) {
+                    errorElement.textContent = message;
+                    errorElement.classList.remove('hidden');
+                }
+            }
+            
+            function clearCache() {
+                matchCache.clear();
+                updateCacheStatus();
+            }
+            
+            // Public methods
+            return {
+                initialize,
+                loadDashboard,
+                clearCache
+            };
+        })();
+
+        // Initialize dashboard when DOM is loaded
+        document.addEventListener('DOMContentLoaded', () => {
+            Dashboard.initialize();
+        });
     </script>
 </body>
 </html> 
