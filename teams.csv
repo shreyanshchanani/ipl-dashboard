@@ -1,0 +1,71 @@
+idx,id,amount,timestamp,player_id,team_id,player,owner,extra_mult
+1,1,12.0,2024-03-14 00:00:00,1,1,Jos Buttler,Yash,0
+2,2,5.0,2024-03-14 00:00:00,2,1,Sai Sudharsan,Yash,0
+3,3,2.0,2024-03-14 00:00:00,3,1,Rahul Tewatia,Yash,0
+4,4,5.5,2024-03-14 00:00:00,4,1,Liam Livingstone,Yash,0
+5,5,3.5,2024-03-14 00:00:00,5,1,Tim David,Yash,0
+6,6,10.5,2024-03-14 00:00:00,6,1,Suryakumar Yadav,Yash,0
+7,7,4.0,2024-03-14 00:00:00,7,1,Ryan Rickelton,Yash,0
+8,8,4.5,2024-03-14 00:00:00,8,1,Deepak Chahar,Yash,0
+9,9,1.0,2024-03-14 00:00:00,9,1,Suryavanshi,Yash,0
+10,10,4.0,2024-03-14 00:00:00,10,1,David Miller,Yash,0
+11,11,3.5,2024-03-14 00:00:00,11,1,Sam Curran,Yash,0
+12,12,23.0,2024-03-14 00:00:00,12,1,Abhishek Sharma,Yash,1
+13,13,1.0,2024-03-14 00:00:00,13,1,Venkatesh Iyer,Yash,0
+14,14,23.5,2024-03-14 00:00:00,14,1,KL Rahul,Yash,0.5
+15,15,16.0,2024-03-14 00:00:00,15,2,Shubman Gill,Bhavika,1
+16,16,2.0,2024-03-14 00:00:00,16,2,SRK,Bhavika,0
+17,17,6.5,2024-03-14 00:00:00,17,2,Devdutt Padikkal,Bhavika,0
+18,18,2.0,2024-03-14 00:00:00,18,2,Bhuvneshwar Kumar,Bhavika,0
+19,19,12.5,2024-03-14 00:00:00,19,2,Hardik Pandya,Bhavika,0
+20,20,5.0,2024-03-14 00:00:00,20,2,Devon Conway,Bhavika,0
+21,21,4.0,2024-03-14 00:00:00,21,2,Rachin Ravindra,Bhavika,0
+22,22,1.0,2024-03-14 00:00:00,22,2,Harshal Patel,Bhavika,0
+23,23,2.0,2024-03-14 00:00:00,23,2,Mohammed Shami,Bhavika,0
+24,24,10.0,2024-03-14 00:00:00,24,2,Quinton de Kock,Bhavika,0
+25,25,1.0,2024-03-14 00:00:00,25,2,Varun Chakaravarthy,Bhavika,0
+26,26,23.0,2024-03-14 00:00:00,26,2,Shreyas Iyer,Bhavika,0.5
+27,27,7.0,2024-03-14 00:00:00,27,2,Jake Fraser McGurk,Bhavika,0
+28,28,8.0,2024-03-14 00:00:00,28,2,Axar Patel,Bhavika,0
+29,29,2.0,2024-03-14 00:00:00,29,3,Kumar Kushagra,Armaan,0
+30,30,5.0,2024-03-14 00:00:00,30,3,Glenn Phillips,Armaan,0
+31,31,5.0,2024-03-14 00:00:00,31,3,Mohammed Siraj,Armaan,0
+32,32,1.0,2024-03-14 00:00:00,32,3,Jacob Betehall,Armaan,0
+33,33,4.5,2024-03-14 00:00:00,33,3,Josh Hazlewood,Armaan,0
+34,34,10.0,2024-03-14 00:00:00,34,3,Tilak Varma,Armaan,0
+35,35,8.0,2024-03-14 00:00:00,35,3,Will Jacks,Armaan,0
+36,36,1.0,2024-03-14 00:00:00,36,3,Mitchell Santner,Armaan,0
+37,37,13.5,2024-03-14 00:00:00,37,3,Jasprit Bumrah,Armaan,0.5
+38,38,10.0,2024-03-14 00:00:00,38,3,Rishabh Pant,Armaan,0
+39,39,11.5,2024-03-14 00:00:00,39,3,Pat Cummins,Armaan,0
+40,40,10.5,2024-03-14 00:00:00,40,3,Rinku Singh,Armaan,0
+41,41,11.5,2024-03-14 00:00:00,41,3,Sunil Narine,Armaan,1
+42,42,6.5,2024-03-14 00:00:00,42,3,Marcus Stoinis,Armaan,0
+43,43,14.0,2024-03-14 00:00:00,43,4,Rashid Khan,Shreyansh,0
+44,44,5.5,2024-03-14 00:00:00,44,4,Rajat Patidar,Shreyansh,0
+45,45,18.0,2024-03-14 00:00:00,45,4,Virat Kohli,Shreyansh,1
+46,46,6.5,2024-03-14 00:00:00,46,4,Phil Salt,Shreyansh,0
+47,47,8.0,2024-03-14 00:00:00,47,4,Sanju Samson,Shreyansh,0
+48,48,5.5,2024-03-14 00:00:00,48,4,Riyan Parag,Shreyansh,0
+49,49,3.0,2024-03-14 00:00:00,49,4,Jofra Archer,Shreyansh,0
+50,50,4.5,2024-03-14 00:00:00,50,4,Nicholas Pooran,Shreyansh,0
+51,51,13.5,2024-03-14 00:00:00,51,4,Ruturaj Gaikwad,Shreyansh,0.5
+52,52,2.5,2024-03-14 00:00:00,52,4,Ravindra Jadeja,Shreyansh,0
+53,53,3.5,2024-03-14 00:00:00,53,4,Shivam Dube,Shreyansh,0
+54,54,6.0,2024-03-14 00:00:00,54,4,Heinrich Klaasen,Shreyansh,0
+55,55,1.0,2024-03-14 00:00:00,55,4,Nitish Reddy,Shreyansh,0
+56,56,8.5,2024-03-14 00:00:00,56,4,Andre Russell,Shreyansh,0
+57,57,1.5,2024-03-14 00:00:00,57,5,Washington Sundar,Gattu,0
+58,58,4.5,2024-03-14 00:00:00,58,5,Rabada,Gattu,0
+59,59,3.0,2024-03-14 00:00:00,59,5,Prasidh Krishna,Gattu,0
+60,60,3.0,2024-03-14 00:00:00,60,5,Jitesh Sharma,Gattu,0
+61,61,1.0,2024-03-14 00:00:00,61,5,Krunal,Gattu,0
+62,62,9.5,2024-03-14 00:00:00,62,5,Rohit Sharma,Gattu,0
+63,63,8.0,2024-03-14 00:00:00,63,5,Trent Boult,Gattu,0
+64,64,17.0,2024-03-14 00:00:00,64,5,Yashasvi Jaiswal,Gattu,1
+65,65,1.0,2024-03-14 00:00:00,65,5,Aidan Markram,Gattu,0
+66,66,4.5,2024-03-14 00:00:00,66,5,Ravi Bishoni,Gattu,0
+67,67,10.5,2024-03-14 00:00:00,67,5,Ishan Kishan,Gattu,0
+68,68,12.5,2024-03-14 00:00:00,68,5,Travis Head,Gattu,0.5
+69,69,1.5,2024-03-14 00:00:00,69,5,Faf du Plessis,Gattu,0
+70,70,22.5,2024-03-14 00:00:00,70,5,Glenn Maxwell,Gattu,0
