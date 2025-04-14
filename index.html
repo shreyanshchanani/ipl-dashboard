@@ -1578,68 +1578,53 @@
             }
             
             // Bowling score
-            let bowlers_score = 0;
-            if (stats.balls_bowled > 0) {
-                // Calculate good ones as the sum of bowled and lbw dismissals
-                const good_ones = stats.wicket_bowled + stats.wicket_lbw;
+            let bowler_score = 0;
+            if (stats.overs_bowled > 0) {
+                const wickets = stats.wickets || 0;
+                const maidens = stats.maidens || 0;
+                const economy = stats.runs_conceded / stats.overs_bowled;
                 
                 // Base points for wickets
-                const wicketsPoints = stats.wickets * 25;
+                bowler_score = wickets * 25;
                 
-                // Good ones bonus
-                const goodOnesBonus = good_ones * 8;
-                
-                // Wicket milestone bonuses
-                let wicketMilestoneBonus = 0;
-                if (stats.wickets >= 5) {
-                    wicketMilestoneBonus = 16;
-                } else if (stats.wickets >= 4) {
-                    wicketMilestoneBonus = 8;
-                } else if (stats.wickets >= 3) {
-                    wicketMilestoneBonus = 4;
+                // Economy rate bonus/penalty
+                if (economy < 4) {
+                    bowler_score += 6;
+                } else if (economy < 5) {
+                    bowler_score += 4;
+                } else if (economy < 6) {
+                    bowler_score += 2;
+                } else if (economy > 12) {
+                    bowler_score -= 6;
+                } else if (economy > 10) {
+                    bowler_score -= 4;
+                } else if (economy > 9) {
+                    bowler_score -= 2;
                 }
                 
-                // Economy bonus
-                let economyBonus = 0;
-                if (stats.economy < 5) {
-                    economyBonus = 6;
-                } else if (stats.economy < 6) {
-                    economyBonus = 4;
-                } else if (stats.economy < 7) {
-                    economyBonus = 2;
-                } else if (stats.economy >= 10 && stats.economy < 11) {
-                    economyBonus = -2;
-                } else if (stats.economy >= 11 && stats.economy < 12) {
-                    economyBonus = -4;
-                } else if (stats.economy >= 12) {
-                    economyBonus = -6;
-                }
+                // Maiden over bonus
+                bowler_score += maidens * 4;
                 
-                bowlers_score = wicketsPoints + goodOnesBonus + wicketMilestoneBonus + economyBonus;
+                console.log(`DEBUG BOWLING: ${player.player_name} (${player.player_id}) in match ${matchId} - Wickets: ${wickets}, Maidens: ${maidens}, Economy: ${economy}, Total: ${bowler_score}`);
             }
             
             // Fielding score
             let fielding_score = 0;
+            const catches = stats.catches || 0;
+            const stumpings = stats.stumpings || 0;
+            const run_outs = stats.run_outs || 0;
             
-            // Catches (8 points each)
-            const catchesPoints = (stats.catches || 0) * 8;
+            fielding_score = catches * 8 + stumpings * 12 + run_outs * 6;
             
-            // Catch milestone bonus (4 points for 3 catches)
-            const catchMilestoneBonus = (stats.catches >= 3) ? 4 : 0;
+            console.log(`DEBUG FIELDING: ${player.player_name} (${player.player_id}) in match ${matchId} - Catches: ${catches}, Stumpings: ${stumpings}, Run Outs: ${run_outs}, Total: ${fielding_score}`);
             
-            // Stumpings (12 points each)
-            const stumpingsPoints = (stats.stumpings || 0) * 12;
+            // Calculate total score
+            let total_score = batsman_score + bowler_score + fielding_score;
             
-            // Run outs (12 points for direct, 6 for indirect)
-            // Note: We'll assume all run outs are direct unless specified otherwise
-            const runOutsPoints = (stats.run_outs || 0) * 12;
+            // Log the final score calculation
+            console.log(`DEBUG FINAL: ${player.player_name} (${player.player_id}) in match ${matchId} - Batting: ${batsman_score}, Bowling: ${bowler_score}, Fielding: ${fielding_score}, Total: ${total_score}`);
             
-            fielding_score = catchesPoints + catchMilestoneBonus + stumpingsPoints + runOutsPoints;
-            
-            console.log(`DEBUG CATCHES: ${player.player_name} (${player.player_id}) in match ${matchId} - calculateMatchScore - Final Fielding Values - Catches: ${stats.catches}, Run Outs: ${stats.run_outs}, Stumpings: ${stats.stumpings}, Fielding Score: ${fielding_score}`);
-
-            // Final score for this match
-            return batsman_score + bowlers_score + fielding_score;
+            return total_score;
         }
 
         // Function to display player table
