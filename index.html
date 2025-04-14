@@ -1522,13 +1522,18 @@
                     const matchStats = player.matchStats[matchId];
                     
                     // Calculate base score for this match
-                    const matchScore = calculateMatchScore(player, matchId, matchStats);
+                    const matchScoreObj = calculateMatchScore(player, matchId, matchStats);
                     
                     // Apply the extra multiplier (from teams.csv)
-                    finalMatchScore = matchScore * player.extra_mult;
+                    const finalMatchScore = matchScoreObj.total * player.extra_mult;
                     
                     // Add this match's score to total
                     player.score += finalMatchScore;
+                    
+                    // Track multiplier count
+                    if (matchScoreObj.multiplier > 1) {
+                        player.multiplier_count++;
+                    }
                 }
                 
                 // Round to 2 decimal places
@@ -1537,95 +1542,116 @@
         }
         
         // Function to calculate a player's score for a single match
-        function calculateMatchScore(player, matchId, stats) {
-            // Batting score
-            let batsman_score = 0;
-            if (stats.balls_faced > 0) {
-                // Base points (1 point per run)
-                batsman_score = stats.runs;
-                
-                // Boundary points (1 point per four, 2 points per six)
-                const boundaryPoints = (stats.fours || 0) * 1 + (stats.sixes || 0) * 2;
-                batsman_score += boundaryPoints;
-                
+        function calculateMatchScore(player, matchId, matchStats) {
+            // Parse all stats as integers, defaulting to 0
+            const runs = parseInt(matchStats.runs || 0);
+            const balls_faced = parseInt(matchStats.balls_faced || 0);
+            const fours = parseInt(matchStats.fours || 0);
+            const sixes = parseInt(matchStats.sixes || 0);
+            const wickets = parseInt(matchStats.wickets || 0);
+            const balls_bowled = parseInt(matchStats.balls_bowled || 0);
+            const runs_conceded = parseInt(matchStats.runs_conceded || 0);
+            const catches = parseInt(matchStats.catches || 0);
+            const stumpings = parseInt(matchStats.stumpings || 0);
+            const run_outs = parseInt(matchStats.run_outs || 0);
+            const wicket_bowled = parseInt(matchStats.wicket_bowled || 0);
+            const wicket_lbw = parseInt(matchStats.wicket_lbw || 0);
+            const dot_balls = parseInt(matchStats.dot_balls || 0);
+
+            // Calculate economy rate for bowlers
+            let economy = 0;
+            if (balls_bowled > 0) {
+                economy = (runs_conceded / balls_bowled) * 6;
+            }
+
+            // Calculate strike rate for batsmen
+            let strike_rate = 0;
+            if (balls_faced > 0) {
+                strike_rate = (runs / balls_faced) * 100;
+            }
+
+            // Initialize scores
+            let batting_score = 0;
+            let bowling_score = 0;
+            let fielding_score = 0;
+            let multiplier = 1;
+
+            // Batting points
+            if (runs > 0) {
+                // Base points: 1 point per run
+                batting_score = runs;
+
+                // Boundary points: 1 point per four, 2 points per six
+                batting_score += (fours * 1) + (sixes * 2);
+
                 // Milestone bonuses
-                if (stats.runs >= 100) {
-                    batsman_score += 16;  // 100+ runs bonus
-                } else if (stats.runs >= 50) {
-                    batsman_score += 8;   // 50+ runs bonus
-                } else if (stats.runs >= 30) {
-                    batsman_score += 4;   // 30+ runs bonus
+                if (runs >= 100) {
+                    batting_score += 16; // 16 points for century
+                } else if (runs >= 50) {
+                    batting_score += 8; // 8 points for half-century
+                } else if (runs >= 30) {
+                    batting_score += 4; // 4 points for 30+ runs
                 }
-                
-                // Strike rate bonus (only if player faced more than 9 balls)
-                if (stats.balls_faced > 9) {
-                    const currentSr = (stats.runs * 100) / stats.balls_faced;
-                    if (currentSr < 50) {
-                        batsman_score -= 6;
-                    } else if (currentSr < 60) {
-                        batsman_score -= 4;
-                    } else if (currentSr < 70) {
-                        batsman_score -= 2;
-                    } else if (currentSr >= 100 && currentSr < 120) {
-                        batsman_score += 2;
-                    } else if (currentSr >= 120 && currentSr < 140) {
-                        batsman_score += 4;
-                    } else if (currentSr >= 140) {
-                        batsman_score += 6;
+
+                // Strike rate bonus (only if faced more than 9 balls)
+                if (balls_faced > 9) {
+                    if (strike_rate > 170) {
+                        batting_score += 6; // +6 points for SR > 170
+                    } else if (strike_rate > 150) {
+                        batting_score += 4; // +4 points for SR > 150
+                    } else if (strike_rate > 130) {
+                        batting_score += 2; // +2 points for SR > 130
+                    } else if (strike_rate < 70) {
+                        batting_score -= 6; // -6 points for SR < 70
+                    } else if (strike_rate < 85) {
+                        batting_score -= 4; // -4 points for SR < 85
+                    } else if (strike_rate < 100) {
+                        batting_score -= 2; // -2 points for SR < 100
                     }
                 }
-                
-                console.log(`DEBUG BATTING: ${player.player_name} (${player.player_id}) in match ${matchId} - Base: ${stats.runs}, Boundaries: ${boundaryPoints}, Total: ${batsman_score}`);
             }
-            
-            // Bowling score
-            let bowler_score = 0;
-            if (stats.overs_bowled > 0) {
-                const wickets = stats.wickets || 0;
-                const maidens = stats.maidens || 0;
-                const economy = stats.runs_conceded / stats.overs_bowled;
+
+            // Bowling points
+            if (wickets > 0) {
+                // Economy bonus: 3 * (1.5 * balls - runs)
+                const economyBonus = 3 * (1.5 * balls_bowled - runs_conceded);
                 
-                // Base points for wickets
-                bowler_score = wickets * 25;
+                // Wickets bonus: 20 points per wicket
+                const wicketsBonus = wickets * 20;
                 
-                // Economy rate bonus/penalty
-                if (economy < 4) {
-                    bowler_score += 6;
-                } else if (economy < 5) {
-                    bowler_score += 4;
-                } else if (economy < 6) {
-                    bowler_score += 2;
-                } else if (economy > 12) {
-                    bowler_score -= 6;
-                } else if (economy > 10) {
-                    bowler_score -= 4;
-                } else if (economy > 9) {
-                    bowler_score -= 2;
-                }
+                // Good ones bonus: 10 points per bowled or lbw
+                const goodOnes = wicket_bowled + wicket_lbw;
+                const goodOnesBonus = goodOnes * 10;
                 
-                // Maiden over bonus
-                bowler_score += maidens * 4;
+                // Dot balls bonus: 1 point per dot ball
+                const dotBallsBonus = dot_balls;
                 
-                console.log(`DEBUG BOWLING: ${player.player_name} (${player.player_id}) in match ${matchId} - Wickets: ${wickets}, Maidens: ${maidens}, Economy: ${economy}, Total: ${bowler_score}`);
+                // Three wicket bonus: 15 points for 3+ wickets
+                const threeWicketBonus = (wickets >= 3) ? 15 : 0;
+                
+                // Calculate total bowling score
+                bowling_score = economyBonus + wicketsBonus + goodOnesBonus + dotBallsBonus + threeWicketBonus;
             }
-            
-            // Fielding score
-            let fielding_score = 0;
-            const catches = stats.catches || 0;
-            const stumpings = stats.stumpings || 0;
-            const run_outs = stats.run_outs || 0;
-            
-            fielding_score = catches * 8 + stumpings * 12 + run_outs * 6;
-            
-            console.log(`DEBUG FIELDING: ${player.player_name} (${player.player_id}) in match ${matchId} - Catches: ${catches}, Stumpings: ${stumpings}, Run Outs: ${run_outs}, Total: ${fielding_score}`);
-            
+
+            // Fielding points
+            fielding_score = (catches * 10) + (stumpings * 15) + (run_outs * 20);
+
             // Calculate total score
-            let total_score = batsman_score + bowler_score + fielding_score;
-            
-            // Log the final score calculation
-            console.log(`DEBUG FINAL: ${player.player_name} (${player.player_id}) in match ${matchId} - Batting: ${batsman_score}, Bowling: ${bowler_score}, Fielding: ${fielding_score}, Total: ${total_score}`);
-            
-            return total_score;
+            const total_score = batting_score + bowling_score + fielding_score;
+
+            // Apply multiplier if total score is high enough
+            if (total_score >= 50) {
+                multiplier = 2;
+            }
+
+            // Return score breakdown
+            return {
+                total: total_score * multiplier,
+                batting: batting_score,
+                bowling: bowling_score,
+                fielding: fielding_score,
+                multiplier: multiplier
+            };
         }
 
         // Function to display player table
