@@ -1389,7 +1389,7 @@
             if (!playerName) return playerId;
             
             // Normalize player name for case-insensitive matching
-            const normalizedName = playerName.trim().toLowerCase();
+            const normalizedName = playerName.trim().toLowerCase().replace(/[-\s]/g, '');
             
             // Check if we've seen this player name before - EXACT match only
             if (playerNameToId[normalizedName]) {
@@ -1422,7 +1422,8 @@
             // Check if player exists in team mapping by EXACT name match
             let foundId = null;
             for (const [id, info] of Object.entries(teamOwnerMapping)) {
-                if (info.player_name.toLowerCase() === normalizedName) {
+                const mappedName = info.player_name.toLowerCase().replace(/[-\s]/g, '');
+                if (mappedName === normalizedName) {
                     foundId = id;
                     break;
                 }
