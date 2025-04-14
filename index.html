@@ -1523,19 +1523,8 @@
                     // Calculate base score for this match
                     const matchScore = calculateMatchScore(player, matchId, matchStats);
                     
-                    // Apply 1.3x multiplier if this player was the highest scorer in the match
-                    let finalMatchScore = matchScore;
-                    if (matchStats.is_highest_scorer) {
-                        finalMatchScore = matchScore * 1.3;
-                        
-                        // Count this multiplier for display
-                        player.multiplier_count += 1;
-                        
-                        console.log(`Applied 1.3x multiplier for ${player.player_name} in match ${matchId}`);
-                    }
-                    
                     // Apply the extra multiplier (from teams.csv)
-                    finalMatchScore = finalMatchScore * player.extra_mult;
+                    finalMatchScore = matchScore * player.extra_mult;
                     
                     // Add this match's score to total
                     player.score += finalMatchScore;
@@ -1551,11 +1540,41 @@
             // Batting score
             let batsman_score = 0;
             if (stats.balls_faced > 0) {
-                const sr = stats.runs / stats.balls_faced;
-                // Add bonus points for fours (0.5 each) and sixes (1 each)
-                const boundaryBonus = (stats.fours || 0) * 0.5 + (stats.sixes || 0) * 1;
-                batsman_score = stats.runs + (sr - 1.5) * Math.max(stats.runs, stats.balls_faced) + 
-                              (stats.runs >= 50 ? 8 : 0) + (stats.runs >= 100 ? 8 : 0) + boundaryBonus;
+                // Base points (1 point per run)
+                batsman_score = stats.runs;
+                
+                // Boundary points (1 point per four, 2 points per six)
+                const boundaryPoints = (stats.fours || 0) * 1 + (stats.sixes || 0) * 2;
+                batsman_score += boundaryPoints;
+                
+                // Milestone bonuses
+                if (stats.runs >= 100) {
+                    batsman_score += 16;  // 100+ runs bonus
+                } else if (stats.runs >= 50) {
+                    batsman_score += 8;   // 50+ runs bonus
+                } else if (stats.runs >= 30) {
+                    batsman_score += 4;   // 30+ runs bonus
+                }
+                
+                // Strike rate bonus (only if player faced more than 9 balls)
+                if (stats.balls_faced > 9) {
+                    const currentSr = (stats.runs * 100) / stats.balls_faced;
+                    if (currentSr < 50) {
+                        batsman_score -= 6;
+                    } else if (currentSr < 60) {
+                        batsman_score -= 4;
+                    } else if (currentSr < 70) {
+                        batsman_score -= 2;
+                    } else if (currentSr >= 100 && currentSr < 120) {
+                        batsman_score += 2;
+                    } else if (currentSr >= 120 && currentSr < 140) {
+                        batsman_score += 4;
+                    } else if (currentSr >= 140) {
+                        batsman_score += 6;
+                    }
+                }
+                
+                console.log(`DEBUG BATTING: ${player.player_name} (${player.player_id}) in match ${matchId} - Base: ${stats.runs}, Boundaries: ${boundaryPoints}, Total: ${batsman_score}`);
             }
             
             // Bowling score
@@ -1647,7 +1666,6 @@
                             <th>6s</th>
                             <th>Wickets</th>
                             <th>Field</th>
-                            <th>1.3×</th>
                             <th>Mult</th>
                             <th>Score</th>
                         </tr>
@@ -1778,9 +1796,9 @@
                                 <thead>
                                     <tr>
                                         <th>Player</th>
-                                        <th>1.3×</th>
-                                        <th>Mult</th>
-                                        <th>Score</th>
+                                        <th>Matches</th>
+                                        <th>Total</th>
+                                        <th>Avg</th>
                                     </tr>
                                 </thead>
                                 <tbody>
@@ -1801,7 +1819,7 @@
                             <td>${player.player_name}</td>
                             <td>${multiplierCount}</td>
                             <td>${extraMultDisplay}</td>
-                            <td><strong>${roundedScore}</strong></td>
+                            <td>${roundedScore}</td>
                         </tr>
                     `;
                 });
@@ -2012,10 +2030,9 @@
                             </div>
                             <div class="stat-box">
                                 <h4>Score Breakdown</h4>
-                                <p>Base: ${(matchScore / (gotMultiplier ? 1.3 : 1) / player.extra_mult).toFixed(1)}</p>
-                                ${gotMultiplier ? `<p>Match Multiplier: ×1.3</p>` : ''}
-                                ${player.extra_mult !== 1.0 ? `<p>Extra Multiplier: ×${player.extra_mult.toFixed(1)}</p>` : ''}
-                                <p><strong>Final: ${matchScore.toFixed(1)}</strong></p>
+                                <p>Base: ${(matchScore / player.extra_mult).toFixed(1)}</p>
+                                ${player.extra_mult !== 1.0 ? `<p>Team Multiplier: ×${player.extra_mult.toFixed(1)}</p>` : ''}
+                                <p>Final Score: ${matchScore.toFixed(1)}</p>
                             </div>
                         </div>
                     </div>
