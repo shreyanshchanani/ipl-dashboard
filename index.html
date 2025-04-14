@@ -1834,6 +1834,62 @@
 
         // Helper function to find owner info by player name
         // ... existing code ...
+
+        function renderPlayerCard(player) {
+            if (!player) return;
+            
+            try {
+                // Update player image
+                const playerImage = document.getElementById('player-image');
+                if (playerImage) {
+                    playerImage.src = player.image || 'https://via.placeholder.com/150';
+                }
+                
+                // Update player details
+                const playerName = document.getElementById('player-name');
+                if (playerName) {
+                    playerName.textContent = player.name;
+                }
+                
+                const playerType = document.getElementById('player-type');
+                if (playerType) {
+                    playerType.textContent = player.type;
+                }
+                
+                const playerCountry = document.getElementById('player-country');
+                if (playerCountry) {
+                    playerCountry.textContent = player.country;
+                }
+                
+                const basePrice = document.getElementById('base-price');
+                if (basePrice) {
+                    basePrice.textContent = `Base Price: ₹${player.basePrice.toLocaleString()}`;
+                }
+                
+                // Update player stats
+                const statsContainer = document.getElementById('player-stats');
+                if (statsContainer) {
+                    statsContainer.innerHTML = '';
+                    
+                    if (player.stats) {
+                        for (const [key, value] of Object.entries(player.stats)) {
+                            let statLabel = key.replace(/([A-Z])/g, ' $1').toLowerCase();
+                            statLabel = statLabel.charAt(0).toUpperCase() + statLabel.slice(1); // Capitalize first letter
+                            
+                            const statItem = document.createElement('div');
+                            statItem.className = 'stat-item';
+                            statItem.innerHTML = `
+                                <div class="stat-label">${statLabel}</div>
+                                <div class="stat-value">${value}</div>
+                            `;
+                            statsContainer.appendChild(statItem);
+                        }
+                    }
+                }
+            } catch (error) {
+                console.error('Error rendering player card:', error);
+            }
+        }
     </script>
 </body>
 </html> 
