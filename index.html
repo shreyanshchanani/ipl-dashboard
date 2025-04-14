@@ -1654,18 +1654,12 @@
             // Calculate total score
             const total_score = batting_score + bowling_score + fielding_score;
 
-            // Apply multiplier if total score is high enough
-            if (total_score >= 50) {
-                multiplier = 2;
-            }
-
             // Return score breakdown
             return {
-                total: total_score * multiplier,
+                total: total_score,
                 batting: batting_score,
                 bowling: bowling_score,
-                fielding: fielding_score,
-                multiplier: multiplier
+                fielding: fielding_score
             };
         }
 
