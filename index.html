@@ -271,82 +271,6 @@
             border-top: 1px solid #eee;
             background-color: white;
         }
-        /* Dashboard Styles */
-        #dashboard-container {
-            padding: 20px;
-            background: white;
-            border-radius: 8px;
-            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
-            margin-top: 20px;
-        }
-
-        .dashboard-status {
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-            margin-bottom: 20px;
-            padding: 10px;
-            background: #f8f9fa;
-            border-radius: 4px;
-        }
-
-        .dashboard-error {
-            padding: 10px;
-            margin: 10px 0;
-            background-color: #fee;
-            color: #c00;
-            border-radius: 4px;
-            border: 1px solid #fcc;
-        }
-
-        .dashboard-error.hidden {
-            display: none;
-        }
-
-        .dashboard-content {
-            overflow-x: auto;
-        }
-
-        .dashboard-table {
-            width: 100%;
-            border-collapse: collapse;
-            margin-top: 10px;
-        }
-
-        .dashboard-table th,
-        .dashboard-table td {
-            padding: 12px;
-            text-align: left;
-            border-bottom: 1px solid #eee;
-        }
-
-        .dashboard-table th {
-            background-color: #f8f9fa;
-            font-weight: 600;
-        }
-
-        .dashboard-table tr:hover {
-            background-color: #f8f9fa;
-        }
-
-        .loading {
-            text-align: center;
-            padding: 20px;
-            color: #666;
-        }
-
-        .secondary-button {
-            background-color: #6c757d;
-            color: white;
-            border: none;
-            padding: 8px 16px;
-            border-radius: 4px;
-            cursor: pointer;
-        }
-
-        .secondary-button:hover {
-            background-color: #5a6268;
-        }
     </style>
 </head>
 <body>
@@ -665,6 +589,7 @@
         
         // Function to initialize player stats with base values
         function initializePlayerStats() {
+            // Ensure playerStats is reset before initialization if needed
             playerStats = {}; 
             for (const playerId in teamOwnerMapping) {
                 const playerInfo = teamOwnerMapping[playerId];
@@ -673,6 +598,7 @@
                     player_name: playerInfo.player_name,
                     team_id: playerInfo.team_id,
                     owner: playerInfo.owner,
+                    extra_mult: playerInfo.extra_mult || 1.0, // Get multiplier from team mapping
                     runs: 0,
                     balls_faced: 0,
                     wickets: 0,
@@ -694,7 +620,8 @@
                     fours: 0,
                     sixes: 0,
                     matchScores: {}, // Track scores per match
-                    matchStats: {}   // Track stats per match
+                    matchStats: {},  // Track stats per match
+                    multiplier_count: 0 // Track how many times player got 1.3x multiplier
                 };
             }
             console.log("Initialized player stats for", Object.keys(playerStats).length, "players");
@@ -944,7 +871,7 @@
                 }
                 
                 // Process fielding stats
-                console.log(`DEBUG CATCHES: Processing fielding for match ${matchId}. Inning catching data:`, inning.catching);
+                console.log(`DEBUG CATCHES: Processing fielding for match ${matchId}. Inning catching data:`, inning.catching); // Added log
                 if (inning.catching) {
                     inning.catching.forEach(fielder => {
                         processFielder(fielder, matchId, matchPlayerScores);
@@ -958,6 +885,33 @@
                     playerStats[playerId].matchScores = playerStats[playerId].matchScores || {};
                     playerStats[playerId].matchScores[matchId] = matchPlayerScores[playerId];
                 }
+            }
+            
+            // Find player with highest score for this match
+            let highestScore = -Infinity;
+            let highestScorerId = null;
+            
+            for (const playerId in matchPlayerScores) {
+                const score = matchPlayerScores[playerId];
+                if (score > highestScore) {
+                    highestScore = score;
+                    highestScorerId = playerId;
+                }
+            }
+            
+            if (highestScorerId) {
+                matchHighestScorers[matchId] = {
+                    playerId: highestScorerId,
+                    score: highestScore,
+                    playerName: playerStats[highestScorerId]?.player_name || "Unknown Player"
+                };
+                
+                // Mark the player as having the highest score for this match
+                if (playerStats[highestScorerId] && playerStats[highestScorerId].matchStats && playerStats[highestScorerId].matchStats[matchId]) {
+                    playerStats[highestScorerId].matchStats[matchId].is_highest_scorer = true;
+                }
+                
+                console.log(`Highest scorer for match ${matchId}: ${matchHighestScorers[matchId].playerName} with ${highestScore} points`);
             }
         }
         
@@ -990,48 +944,6 @@
             matchStats.balls_faced = stats.balls_faced;
             matchStats.fours = stats.fours;
             matchStats.sixes = stats.sixes;
-
-            // Calculate the batting score contribution for this match
-            // Base points: 1 point per run
-            const basePoints = stats.runs;
-
-            // Boundary points: 1 point per four, 2 points per six
-            const boundaryPoints = (stats.fours * 1) + (stats.sixes * 2);
-
-            // Milestone bonuses
-            let milestoneBonus = 0;
-            if (stats.runs >= 100) {
-                milestoneBonus = 16;
-            } else if (stats.runs >= 50) {
-                milestoneBonus = 8;
-            } else if (stats.runs >= 30) {
-                milestoneBonus = 4;
-            }
-
-            // Strike rate bonus (only if player faced more than 9 balls)
-            let srBonus = 0;
-            if (stats.balls_faced > 9) {
-                const currentSr = (stats.runs / stats.balls_faced) * 100;
-                if (currentSr < 50) {
-                    srBonus = -6;
-                } else if (currentSr < 60) {
-                    srBonus = -4;
-                } else if (currentSr < 70) {
-                    srBonus = -2;
-                } else if (currentSr >= 100 && currentSr < 120) {
-                    srBonus = 2;
-                } else if (currentSr >= 120 && currentSr < 140) {
-                    srBonus = 4;
-                } else if (currentSr >= 140) {
-                    srBonus = 6;
-                }
-            }
-
-            // Calculate total batting score for this match
-            const matchBattingScore = basePoints + boundaryPoints + milestoneBonus + srBonus;
-            
-            // Update player's total score
-            playerStats[canonicalId].score += matchBattingScore;
             
             // Update overall stats
             playerStats[canonicalId].runs += stats.runs;
@@ -1063,70 +975,22 @@
                 };
             }
 
-            // Update match stats with proper null checks
+            // Update match stats
             const matchStats = playerStats[canonicalId].matchStats[matchId];
-            matchStats.wickets = stats.wickets || 0;
-            matchStats.maidens = stats.maidens || 0;
-            matchStats.balls_bowled = stats.balls_bowled || 0;
-            matchStats.runs_conceded = stats.runs_conceded || 0;
-            matchStats.wicket_bowled = stats.wicket_bowled || 0;
-            matchStats.wicket_lbw = stats.wicket_lbw || 0;
-
-            // Calculate bowling score
-            let bowler_score = 0;
-            if (stats.balls_bowled > 0) {
-                const wickets = stats.wickets || 0;
-                const maidens = stats.maidens || 0;
-                const balls_bowled = stats.balls_bowled;
-                const runs_conceded = stats.runs_conceded || 0;
-                
-                // Calculate overs properly to avoid division by zero
-                const overs = balls_bowled >= 6 ? Math.floor(balls_bowled / 6) + (balls_bowled % 6) / 10 : balls_bowled / 6;
-                const economy = overs > 0 ? runs_conceded / overs : 0;
-                
-                // Base points for wickets
-                bowler_score = wickets * 25;
-                
-                // Economy rate bonus/penalty (only if bowler has bowled at least 6 balls)
-                if (balls_bowled >= 6) {
-                    if (economy < 4) {
-                        bowler_score += 6;
-                    } else if (economy < 5) {
-                        bowler_score += 4;
-                    } else if (economy < 6) {
-                        bowler_score += 2;
-                    } else if (economy > 12) {
-                        bowler_score -= 6;
-                    } else if (economy > 10) {
-                        bowler_score -= 4;
-                    } else if (economy > 9) {
-                        bowler_score -= 2;
-                    }
-                }
-                
-                // Maiden over bonus
-                bowler_score += maidens * 4;
-                
-                // Wicket milestone bonuses
-                if (wickets >= 5) {
-                    bowler_score += 16;
-                } else if (wickets >= 4) {
-                    bowler_score += 8;
-                } else if (wickets >= 3) {
-                    bowler_score += 4;
-                }
-            }
-
-            // Update player's total score
-            playerStats[canonicalId].score += bowler_score;
+            matchStats.wickets = stats.wickets;
+            matchStats.maidens = stats.maidens;
+            matchStats.balls_bowled = stats.balls_bowled;
+            matchStats.runs_conceded = stats.runs_conceded;
+            matchStats.wicket_bowled = stats.wicket_bowled;
+            matchStats.wicket_lbw = stats.wicket_lbw;
             
-            // Update overall stats with proper null checks
-            playerStats[canonicalId].wickets += stats.wickets || 0;
-            playerStats[canonicalId].maidens += stats.maidens || 0;
-            playerStats[canonicalId].balls_bowled += stats.balls_bowled || 0;
-            playerStats[canonicalId].runs_conceded += stats.runs_conceded || 0;
-            playerStats[canonicalId].wicket_bowled += stats.wicket_bowled || 0;
-            playerStats[canonicalId].wicket_lbw += stats.wicket_lbw || 0;
+            // Update overall stats
+            playerStats[canonicalId].wickets += stats.wickets;
+            playerStats[canonicalId].maidens += stats.maidens;
+            playerStats[canonicalId].balls_bowled += stats.balls_bowled;
+            playerStats[canonicalId].runs_conceded += stats.runs_conceded;
+            playerStats[canonicalId].wicket_bowled += stats.wicket_bowled;
+            playerStats[canonicalId].wicket_lbw += stats.wicket_lbw;
         }
         
         // Process fielder stats
@@ -1153,7 +1017,6 @@
             
             // Initialize this match's stats if they don't exist
             if (!playerStats[canonicalId].matchStats[matchId]) {
-                console.log(`DEBUG CATCHES: Initializing matchStats[${matchId}] for ${fielderName} (${canonicalId}) in processFielder`); // Added log
                 playerStats[canonicalId].matchStats[matchId] = {
                     runs: 0,
                     balls_faced: 0,
@@ -1165,7 +1028,7 @@
                     wicket_other: 0,
                     balls_bowled: 0,
                     catches: 0,
-                    stumpings: 0,
+                    stumpings: 0,  // Initialize stumpings
                     run_outs: 0,
                     economy: 0,
                     high_score: 0,
@@ -1182,28 +1045,19 @@
             const matchStats = playerStats[canonicalId].matchStats[matchId];
             
             // Process fielding contributions
-            console.log(`DEBUG CATCHES: BEFORE PARSE - fielder.catches value: ${fielder.catches}, type: ${typeof fielder.catches}`); // New log
             const catches = parseInt(fielder.catches || 0);
-            console.log(`DEBUG CATCHES: AFTER PARSE - local 'catches' value: ${catches}, type: ${typeof catches}`); // New log
             const runOuts = parseInt(fielder.runout || 0);
             const stumpings = parseInt(fielder.stumping || 0);
-             console.log(`DEBUG CATCHES: processFielder for ${fielderName} (${canonicalId}) in match ${matchId}. Raw fielder data:`, fielder); // Added log
             
             // Update overall stats
             playerStats[canonicalId].catches += catches;
             playerStats[canonicalId].run_outs += runOuts;
-            playerStats[canonicalId].stumpings = (playerStats[canonicalId].stumpings || 0) + stumpings;
+            playerStats[canonicalId].stumpings += stumpings;
             
             // Update match-specific stats
-            console.log(`DEBUG CATCHES: processFielder - Before Add - player[${canonicalId}].catches=${playerStats[canonicalId].catches}, matchStats[${matchId}].catches=${matchStats.catches}, adding=${catches}`); // New log
             matchStats.catches += catches;
             matchStats.run_outs += runOuts;
-            matchStats.stumpings = (matchStats.stumpings || 0) + stumpings;
-            console.log(`DEBUG CATCHES: processFielder - After Add - matchStats[${matchId}].catches=${matchStats.catches}`); // New log
-            
-            // We no longer add points here as they will be calculated in calculateMatchScore
-            
-            console.log(`DEBUG CATCHES: Updated fielding stats for ${fielderName}: ${catches} catches, ${runOuts} run outs, ${stumpings} stumpings`); // Updated log
+            matchStats.stumpings += stumpings;
         }
         
         // Helper to extract catcher ID - not needed with the scorecard API
@@ -1366,10 +1220,10 @@
             let batsman_score = 0;
             if (stats.balls_faced > 0) {
                 // Base points (1 point per run)
-                batsman_score = stats.runs || 0;
+                batsman_score = stats.runs;
                 
                 // Boundary points (1 point per four, 2 points per six)
-                const boundaryPoints = ((stats.fours || 0) * 1) + ((stats.sixes || 0) * 2);
+                const boundaryPoints = (stats.fours || 0) * 1 + (stats.sixes || 0) * 2;
                 batsman_score += boundaryPoints;
                 
                 // Milestone bonuses
@@ -1383,7 +1237,7 @@
                 
                 // Strike rate bonus (only if player faced more than 9 balls)
                 if (stats.balls_faced > 9) {
-                    const currentSr = (stats.runs / stats.balls_faced) * 100;
+                    const currentSr = (stats.runs / stats.balls_faced) * 100; // Use floating point division
                     if (currentSr < 50) {
                         batsman_score -= 6;
                     } else if (currentSr < 60) {
@@ -1408,28 +1262,25 @@
                 const balls_bowled = stats.balls_bowled;
                 const runs_conceded = stats.runs_conceded || 0;
                 
-                // Calculate overs properly to avoid division by zero
-                const overs = balls_bowled >= 6 ? Math.floor(balls_bowled / 6) + (balls_bowled % 6) / 10 : balls_bowled / 6;
-                const economy = overs > 0 ? runs_conceded / overs : 0;
+                // Calculate economy rate properly
+                const economy = balls_bowled > 0 ? (runs_conceded / balls_bowled) * 6 : 0;
                 
                 // Base points for wickets
                 bowler_score = wickets * 25;
                 
-                // Economy rate bonus/penalty (only if bowler has bowled at least 6 balls)
-                if (balls_bowled >= 6) {
-                    if (economy < 4) {
-                        bowler_score += 6;
-                    } else if (economy < 5) {
-                        bowler_score += 4;
-                    } else if (economy < 6) {
-                        bowler_score += 2;
-                    } else if (economy > 12) {
-                        bowler_score -= 6;
-                    } else if (economy > 10) {
-                        bowler_score -= 4;
-                    } else if (economy > 9) {
-                        bowler_score -= 2;
-                    }
+                // Economy rate bonus/penalty
+                if (economy < 4) {
+                    bowler_score += 6;
+                } else if (economy < 5) {
+                    bowler_score += 4;
+                } else if (economy < 6) {
+                    bowler_score += 2;
+                } else if (economy > 12) {
+                    bowler_score -= 6;
+                } else if (economy > 10) {
+                    bowler_score -= 4;
+                } else if (economy > 9) {
+                    bowler_score -= 2;
                 }
                 
                 // Maiden over bonus
@@ -1454,7 +1305,7 @@
             fielding_score = catches * 8 + stumpings * 12 + run_outs * 6;
             
             // Calculate total score
-            const total_score = batsman_score + bowler_score + fielding_score;
+            let total_score = batsman_score + bowler_score + fielding_score;
             
             return { total: total_score };
         }
@@ -1485,31 +1336,118 @@
 
         // Function to display the team dashboard
         function displayTeamDashboard() {
-            const dashboardDiv = document.getElementById('teamDashboard');
-            if (!dashboardDiv) return;
-
-            const teamScores = calculateTeamScores();
-            let html = '<h2>Team Dashboard</h2>';
+            console.log("Displaying team dashboard");
+            const container = document.getElementById('team-dashboard');
             
-            // Sort teams by total score
-            const sortedTeams = Object.entries(teamScores)
-                .sort(([, a], [, b]) => b.total - a.total);
+            // Group players by owner
+            const teamsByOwner = {};
             
-            html += '<div class="team-scores">';
-            sortedTeams.forEach(([teamName, scores]) => {
-                html += `
-                    <div class="team-score-card">
-                        <h3>${teamName}</h3>
-                        <p>Total Score: ${scores.total.toFixed(1)}</p>
-                        <p>Batting Score: ${scores.batting.toFixed(1)}</p>
-                        <p>Bowling Score: ${scores.bowling.toFixed(1)}</p>
-                        <p>Fielding Score: ${scores.fielding.toFixed(1)}</p>
+            // Filter out players with "Unknown" owner
+            Object.values(playerStats)
+                .filter(player => player.owner !== "Unknown")
+                .forEach(player => {
+                    if (!teamsByOwner[player.owner]) {
+                        teamsByOwner[player.owner] = [];
+                    }
+                    teamsByOwner[player.owner].push(player);
+                });
+            
+            // Calculate team scores
+            const teams = [];
+            
+            for (const owner in teamsByOwner) {
+                const players = teamsByOwner[owner];
+                const totalScore = players.reduce((sum, player) => sum + player.score, 0);
+                
+                teams.push({
+                    owner: owner,
+                    players: players,
+                    totalScore: totalScore.toFixed(1)  // Round team score to 1 decimal place
+                });
+            }
+            
+            // Sort teams by total score (descending)
+            teams.sort((a, b) => parseFloat(b.totalScore) - parseFloat(a.totalScore));
+            
+            // Create dashboard HTML
+            let dashboardHtml = `
+                <h2>Team Dashboard</h2>
+                <div class="accordion-container">
+            `;
+            
+            teams.forEach((team, index) => {
+                // Sort team players by score
+                team.players.sort((a, b) => b.score - a.score);
+                
+                // Get the top player (highest scorer)
+                const topPlayer = team.players[0];
+                
+                // Calculate number of multiplier bonuses in the team
+                const teamMultiplierCount = team.players.reduce((sum, player) => sum + (player.multiplier_count || 0), 0);
+                
+                // Create unique ID for each team's content
+                const teamId = `team-${index}`;
+                
+                dashboardHtml += `
+                    <div class="team-accordion">
+                        <div class="team-header" onclick="toggleTeamDetails('${teamId}')">
+                            <div>
+                                <h3>${index + 1}. ${team.owner} - ${team.totalScore} points</h3>
+                                <p class="team-summary">
+                                    ${team.players.length} players | 
+                                    Top: ${topPlayer ? topPlayer.player_name + ' (' + topPlayer.score.toFixed(1) + ')' : 'None'} | 
+                                    Total 1× bonuses: ${teamMultiplierCount}
+                                </p>
+                            </div>
+                            <span class="expand-icon" id="${teamId}-icon">+</span>
+                        </div>
+                        <div class="team-content" id="${teamId}" style="display: none;">
+                            <table>
+                                <thead>
+                                    <tr>
+                                        <th>Player</th>
+                                        <th>Matches</th>
+                                        <th>Total</th>
+                                        <th>Avg</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                `;
+                
+                team.players.forEach(player => {
+                    // Show multiplier count
+                    const multiplierCount = player.multiplier_count || 0;
+                    
+                    // Format extra multiplier display
+                    const extraMultDisplay = player.extra_mult !== 1.0 ? `×${player.extra_mult.toFixed(1)}` : '-';
+                    
+                    // Ensure score is rounded to 1 decimal place for display
+                    const roundedScore = player.score.toFixed(1);
+                    
+                    dashboardHtml += `
+                        <tr>
+                            <td>${player.player_name}</td>
+                            <td>${multiplierCount}</td>
+                            <td>${extraMultDisplay}</td>
+                            <td>${roundedScore}</td>
+                        </tr>
+                    `;
+                });
+                
+                dashboardHtml += `
+                                </tbody>
+                            </table>
+                        </div>
                     </div>
                 `;
             });
-            html += '</div>';
             
-            dashboardDiv.innerHTML = html;
+            dashboardHtml += `
+                </div>
+            `;
+            
+            // Update the container
+            container.innerHTML = dashboardHtml;
         }
 
         // Function to toggle team details visibility
@@ -1907,263 +1845,6 @@
             
             console.log(`Merged stats for ${target.player_name}`);
         }
-
-        // Helper function to find owner info by player name
-        // ... existing code ...
-
-        function renderPlayerCard(player) {
-            if (!player) return;
-            
-            try {
-                // Update player image
-                const playerImage = document.getElementById('player-image');
-                if (playerImage) {
-                    playerImage.src = player.image || 'https://via.placeholder.com/150';
-                }
-                
-                // Update player details
-                const playerName = document.getElementById('player-name');
-                if (playerName) {
-                    playerName.textContent = player.name;
-                }
-                
-                const playerType = document.getElementById('player-type');
-                if (playerType) {
-                    playerType.textContent = player.type;
-                }
-                
-                const playerCountry = document.getElementById('player-country');
-                if (playerCountry) {
-                    playerCountry.textContent = player.country;
-                }
-                
-                const basePrice = document.getElementById('base-price');
-                if (basePrice) {
-                    basePrice.textContent = `Base Price: ₹${player.basePrice.toLocaleString()}`;
-                }
-                
-                // Update player stats
-                const statsContainer = document.getElementById('player-stats');
-                if (statsContainer) {
-                    statsContainer.innerHTML = '';
-                    
-                    if (player.stats) {
-                        for (const [key, value] of Object.entries(player.stats)) {
-                            let statLabel = key.replace(/([A-Z])/g, ' $1').toLowerCase();
-                            statLabel = statLabel.charAt(0).toUpperCase() + statLabel.slice(1); // Capitalize first letter
-                            
-                            const statItem = document.createElement('div');
-                            statItem.className = 'stat-item';
-                            statItem.innerHTML = `
-                                <div class="stat-label">${statLabel}</div>
-                                <div class="stat-value">${value}</div>
-                            `;
-                            statsContainer.appendChild(statItem);
-                        }
-                    }
-                }
-            } catch (error) {
-                console.error('Error rendering player card:', error);
-            }
-        }
-
-        // Dashboard Module
-        const Dashboard = (() => {
-            let cacheTimeout = 60000; // 1 minute cache timeout
-            let matchCache = new Map();
-            
-            function initialize() {
-                try {
-                    console.log('Initializing dashboard...');
-                    setupDashboardElements();
-                    setupEventListeners();
-                    loadDashboard();
-                } catch (error) {
-                    console.error('Error initializing dashboard:', error);
-                    showErrorMessage('Failed to initialize dashboard. Please refresh the page.');
-                }
-            }
-            
-            function setupDashboardElements() {
-                // Create dashboard container if it doesn't exist
-                let dashboardContainer = document.getElementById('dashboard-container');
-                if (!dashboardContainer) {
-                    dashboardContainer = document.createElement('div');
-                    dashboardContainer.id = 'dashboard-container';
-                    document.querySelector('main').appendChild(dashboardContainer);
-                }
-                
-                // Create status elements
-                const statusHtml = `
-                    <div id="dashboard-status" class="dashboard-status">
-                        <div id="cache-status">Cache: 0 matches</div>
-                        <div id="last-update">Last updated: less than 1 minute ago</div>
-                        <button id="clear-cache" class="secondary-button">Clear Cache</button>
-                    </div>
-                    <div id="dashboard-error" class="dashboard-error hidden"></div>
-                    <div id="dashboard-content" class="dashboard-content"></div>
-                `;
-                
-                dashboardContainer.innerHTML = statusHtml;
-            }
-            
-            function setupEventListeners() {
-                const clearCacheButton = document.getElementById('clear-cache');
-                if (clearCacheButton) {
-                    clearCacheButton.addEventListener('click', () => {
-                        clearCache();
-                        loadDashboard();
-                    });
-                }
-            }
-            
-            function loadDashboard() {
-                try {
-                    const dashboardContent = document.getElementById('dashboard-content');
-                    if (!dashboardContent) {
-                        throw new Error('Dashboard content element not found');
-                    }
-                    
-                    // Show loading state
-                    dashboardContent.innerHTML = '<div class="loading">Loading dashboard data...</div>';
-                    
-                    // Update cache status
-                    updateCacheStatus();
-                    
-                    // Load and display data
-                    loadAndDisplayData();
-                } catch (error) {
-                    console.error('Error loading dashboard:', error);
-                    showErrorMessage('Error loading dashboard data. Please try again.');
-                }
-            }
-            
-            function loadAndDisplayData() {
-                try {
-                    const dashboardContent = document.getElementById('dashboard-content');
-                    if (!dashboardContent) {
-                        throw new Error('Dashboard content element not found');
-                    }
-                    
-                    // Clear existing content
-                    dashboardContent.innerHTML = '';
-                    
-                    // Create table structure
-                    const table = document.createElement('table');
-                    table.className = 'dashboard-table';
-                    
-                    // Add table header
-                    const thead = document.createElement('thead');
-                    thead.innerHTML = `
-                        <tr>
-                            <th>Player</th>
-                            <th>Team</th>
-                            <th>Matches</th>
-                            <th>Runs</th>
-                            <th>Wickets</th>
-                            <th>Points</th>
-                        </tr>
-                    `;
-                    table.appendChild(thead);
-                    
-                    // Add table body
-                    const tbody = document.createElement('tbody');
-                    table.appendChild(tbody);
-                    
-                    // Add table to dashboard
-                    dashboardContent.appendChild(table);
-                    
-                    // Load player data
-                    loadPlayerData(tbody);
-                } catch (error) {
-                    console.error('Error setting up dashboard table:', error);
-                    showErrorMessage('Error displaying dashboard data. Please try again.');
-                }
-            }
-            
-            function loadPlayerData(tbody) {
-                if (!tbody) return;
-                
-                try {
-                    // Get all players
-                    dbRefs.players.once('value')
-                        .then(snapshot => {
-                            const players = snapshot.val();
-                            if (!players) {
-                                throw new Error('No player data available');
-                            }
-                            
-                            // Sort players by points
-                            const sortedPlayers = Object.values(players)
-                                .sort((a, b) => (b.score || 0) - (a.score || 0));
-                            
-                            // Clear existing rows
-                            tbody.innerHTML = '';
-                            
-                            // Add player rows
-                            sortedPlayers.forEach(player => {
-                                const row = document.createElement('tr');
-                                row.innerHTML = `
-                                    <td>${player.name || 'Unknown'}</td>
-                                    <td>${player.team || '-'}</td>
-                                    <td>${player.matches || 0}</td>
-                                    <td>${player.runs || 0}</td>
-                                    <td>${player.wickets || 0}</td>
-                                    <td>${(player.score || 0).toFixed(1)}</td>
-                                `;
-                                tbody.appendChild(row);
-                            });
-                            
-                            updateCacheStatus();
-                        })
-                        .catch(error => {
-                            console.error('Error loading player data:', error);
-                            showErrorMessage('Error loading player data. Please try again.');
-                        });
-                } catch (error) {
-                    console.error('Error in loadPlayerData:', error);
-                    showErrorMessage('Error loading player data. Please try again.');
-                }
-            }
-            
-            function updateCacheStatus() {
-                const cacheStatus = document.getElementById('cache-status');
-                const lastUpdate = document.getElementById('last-update');
-                
-                if (cacheStatus) {
-                    cacheStatus.textContent = `Cache: ${matchCache.size} matches`;
-                }
-                
-                if (lastUpdate) {
-                    lastUpdate.textContent = 'Last updated: less than 1 minute ago';
-                }
-            }
-            
-            function showErrorMessage(message) {
-                const errorElement = document.getElementById('dashboard-error');
-                if (errorElement) {
-                    errorElement.textContent = message;
-                    errorElement.classList.remove('hidden');
-                }
-            }
-            
-            function clearCache() {
-                matchCache.clear();
-                updateCacheStatus();
-            }
-            
-            // Public methods
-            return {
-                initialize,
-                loadDashboard,
-                clearCache
-            };
-        })();
-
-        // Initialize dashboard when DOM is loaded
-        document.addEventListener('DOMContentLoaded', () => {
-            Dashboard.initialize();
-        });
     </script>
 </body>
 </html> 
