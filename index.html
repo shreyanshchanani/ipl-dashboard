@@ -589,7 +589,6 @@
         
         // Function to initialize player stats with base values
         function initializePlayerStats() {
-            // Ensure playerStats is reset before initialization if needed
             playerStats = {}; 
             for (const playerId in teamOwnerMapping) {
                 const playerInfo = teamOwnerMapping[playerId];
@@ -598,7 +597,6 @@
                     player_name: playerInfo.player_name,
                     team_id: playerInfo.team_id,
                     owner: playerInfo.owner,
-                    extra_mult: playerInfo.extra_mult || 1.0, // Get multiplier from team mapping
                     runs: 0,
                     balls_faced: 0,
                     wickets: 0,
@@ -620,8 +618,7 @@
                     fours: 0,
                     sixes: 0,
                     matchScores: {}, // Track scores per match
-                    matchStats: {},  // Track stats per match
-                    multiplier_count: 0 // Track how many times player got 1.3x multiplier
+                    matchStats: {}   // Track stats per match
                 };
             }
             console.log("Initialized player stats for", Object.keys(playerStats).length, "players");
@@ -871,7 +868,7 @@
                 }
                 
                 // Process fielding stats
-                console.log(`DEBUG CATCHES: Processing fielding for match ${matchId}. Inning catching data:`, inning.catching); // Added log
+                console.log(`DEBUG CATCHES: Processing fielding for match ${matchId}. Inning catching data:`, inning.catching);
                 if (inning.catching) {
                     inning.catching.forEach(fielder => {
                         processFielder(fielder, matchId, matchPlayerScores);
@@ -886,419 +883,174 @@
                     playerStats[playerId].matchScores[matchId] = matchPlayerScores[playerId];
                 }
             }
-            
-            // Find player with highest score for this match
-            let highestScore = -Infinity;
-            let highestScorerId = null;
-            
-            for (const playerId in matchPlayerScores) {
-                const score = matchPlayerScores[playerId];
-                if (score > highestScore) {
-                    highestScore = score;
-                    highestScorerId = playerId;
-                }
-            }
-            
-            if (highestScorerId) {
-                matchHighestScorers[matchId] = {
-                    playerId: highestScorerId,
-                    score: highestScore,
-                    playerName: playerStats[highestScorerId]?.player_name || "Unknown Player"
-                };
-                
-                // Mark the player as having the highest score for this match
-                if (playerStats[highestScorerId] && playerStats[highestScorerId].matchStats && playerStats[highestScorerId].matchStats[matchId]) {
-                    playerStats[highestScorerId].matchStats[matchId].is_highest_scorer = true;
-                }
-                
-                console.log(`Highest scorer for match ${matchId}: ${matchHighestScorers[matchId].playerName} with ${highestScore} points`);
-            }
         }
         
         // Process batsman stats
-        function processBatsman(batsman, matchId, matchPlayerScores) {
-            if (!batsman || !batsman.batsman || !batsman.batsman.id) return;
+        function processBatsman(player, matchId, stats) {
+            const canonicalId = player.player_id;
             
-            const batterId = String(batsman.batsman.id || "");
-            const batterName = batsman.batsman.name || "";
-            
-            if (!batterId || !batterName) return;
-            
-            // Get or create proper player ID to prevent duplicates
-            const canonicalId = getOrCreatePlayer(batterId, batterName);
-            
-            if (!canonicalId || !playerStats[canonicalId]) return;
-            
-            // Initialize match score for this player if it doesn't exist
-            matchPlayerScores[canonicalId] = matchPlayerScores[canonicalId] || 0;
-            
-            // Initialize per-match stats tracking if it doesn't exist
-            if (!playerStats[canonicalId].matchStats) {
-                playerStats[canonicalId].matchStats = {};
-            }
-            
-            // Initialize this match's stats if they don't exist
+            // Initialize match stats if not exists
             if (!playerStats[canonicalId].matchStats[matchId]) {
-                console.log(`DEBUG CATCHES: Initializing matchStats[${matchId}] for ${batterName} (${canonicalId}) in processBatsman`); // Added log
                 playerStats[canonicalId].matchStats[matchId] = {
                     runs: 0,
                     balls_faced: 0,
-                    wickets: 0,
-                    wicket_bowled: 0,
-                    wicket_lbw: 0,
-                    wicket_caught: 0,
-                    wicket_stumped: 0,
-                    wicket_other: 0,
-                    balls_bowled: 0,
-                    catches: 0,
-                    run_outs: 0,
-                    economy: 0,
-                    high_score: 0,
-                    strike_rate: 0,
-                    runs_conceded: 0,
-                    dot_balls: 0,
-                    good_ones: 0,
                     fours: 0,
-                    sixes: 0
+                    sixes: 0,
+                    catches: 0,
+                    stumpings: 0,
+                    run_outs: 0,
+                    wickets: 0,
+                    maidens: 0,
+                    balls_bowled: 0,
+                    runs_conceded: 0,
+                    wicket_bowled: 0,
+                    wicket_lbw: 0
                 };
             }
-            
-            // Get reference to this match's stats
+
+            // Update match stats
             const matchStats = playerStats[canonicalId].matchStats[matchId];
-            
-            // Update batting stats
-            const runs = parseInt(batsman.r || 0);
-            const ballsFaced = parseInt(batsman.b || 0);
-            const fours = parseInt(batsman['4s'] || 0);
-            const sixes = parseInt(batsman['6s'] || 0);
-            const sr = parseFloat(batsman.sr || 0);
-            
-            // Update overall stats
-            playerStats[canonicalId].runs += runs;
-            playerStats[canonicalId].balls_faced += ballsFaced;
-            playerStats[canonicalId].fours = (playerStats[canonicalId].fours || 0) + fours;
-            playerStats[canonicalId].sixes = (playerStats[canonicalId].sixes || 0) + sixes;
-            
-            // Update match-specific stats
-            matchStats.runs += runs;
-            matchStats.balls_faced += ballsFaced;
-            matchStats.fours += fours;
-            matchStats.sixes += sixes;
-            
-            // Check if there is a dismissal and update the bowler's wicket types
-            if (batsman.dismissal && batsman.bowler && batsman.bowler.id) {
-                const dismissalType = batsman.dismissal.toLowerCase();
-                const bowlerId = String(batsman.bowler.id || "");
-                const bowlerName = batsman.bowler.name || "";
-                
-                if (bowlerId && bowlerName) {
-                    // Get or create the bowler
-                    const bowlerCanonicalId = getOrCreatePlayer(bowlerId, bowlerName);
-                    
-                    if (bowlerCanonicalId && playerStats[bowlerCanonicalId]) {
-                        // Initialize bowler's match stats if needed
-                        if (!playerStats[bowlerCanonicalId].matchStats[matchId]) {
-                            playerStats[bowlerCanonicalId].matchStats[matchId] = {
-                                runs: 0,
-                                balls_faced: 0,
-                                wickets: 0,
-                                wicket_bowled: 0,
-                                wicket_lbw: 0,
-                                wicket_caught: 0,
-                                wicket_stumped: 0,
-                                wicket_other: 0,
-                                balls_bowled: 0,
-                                catches: 0,
-                                run_outs: 0,
-                                economy: 0,
-                                high_score: 0,
-                                strike_rate: 0,
-                                runs_conceded: 0,
-                                dot_balls: 0,
-                                good_ones: 0,
-                                fours: 0,
-                                sixes: 0
-                            };
-                        }
-                        
-                        // Update wicket type for the bowler
-                        if (dismissalType === 'bowled') {
-                            playerStats[bowlerCanonicalId].wicket_bowled += 1;
-                            playerStats[bowlerCanonicalId].matchStats[matchId].wicket_bowled += 1;
-                        } else if (dismissalType === 'lbw') {
-                            playerStats[bowlerCanonicalId].wicket_lbw += 1;
-                            playerStats[bowlerCanonicalId].matchStats[matchId].wicket_lbw += 1;
-                        } else if (dismissalType === 'catch' || dismissalType === 'caught') {
-                            playerStats[bowlerCanonicalId].wicket_caught += 1;
-                            playerStats[bowlerCanonicalId].matchStats[matchId].wicket_caught += 1;
-                            
-                            // Credit the catch to the catcher if available
-                            console.log(`DEBUG CATCHES: processBatsman - Checking dismissal for catch for ${batterName} (${canonicalId}). Batsman object:`, batsman); // Modified log to include name
-                            if (batsman.catcher && batsman.catcher.id) {
-                                const catcherId = String(batsman.catcher.id || "");
-                                const catcherName = batsman.catcher.name || "";
-                                
-                                if (catcherId && catcherName) {
-                                    const catcherCanonicalId = getOrCreatePlayer(catcherId, catcherName);
-                                    
-                                    if (catcherCanonicalId && playerStats[catcherCanonicalId]) {
-                                        // Initialize catcher's match stats if needed
-                                        if (!playerStats[catcherCanonicalId].matchStats[matchId]) {
-                                            playerStats[catcherCanonicalId].matchStats[matchId] = {
-                                                runs: 0,
-                                                balls_faced: 0,
-                                                wickets: 0,
-                                                wicket_bowled: 0,
-                                                wicket_lbw: 0,
-                                                wicket_caught: 0,
-                                                wicket_stumped: 0,
-                                                wicket_other: 0,
-                                                balls_bowled: 0,
-                                                catches: 0,
-                                                run_outs: 0,
-                                                economy: 0,
-                                                high_score: 0,
-                                                strike_rate: 0,
-                                                runs_conceded: 0,
-                                                dot_balls: 0,
-                                                good_ones: 0,
-                                                fours: 0,
-                                                sixes: 0
-                                            };
-                                        }
-                                        
-                                        // Update catch stats for the catcher
-                                        const catcherMatchStats = playerStats[catcherCanonicalId].matchStats[matchId]; // Get ref
-                                        console.log(`DEBUG CATCHES: processBatsman - Before Add - player[${catcherCanonicalId}].catches=${playerStats[catcherCanonicalId].catches}, matchStats[${matchId}].catches=${catcherMatchStats.catches}`); // New log
-                                        playerStats[catcherCanonicalId].catches += 1;
-                                        catcherMatchStats.catches += 1;
-                                        console.log(`DEBUG CATCHES: processBatsman - After Add - player[${catcherCanonicalId}].catches=${playerStats[catcherCanonicalId].catches}, matchStats[${matchId}].catches=${catcherMatchStats.catches}`); // New log
-                                        console.log(`Credited catch to ${catcherName} (from batsman dismissal processing)`);
-                                        
-                                        // We no longer add points here as they will be calculated in calculateMatchScore
-                                    }
-                                }
-                            }
-                        } else if (dismissalType === 'stumped') {
-                            playerStats[bowlerCanonicalId].wicket_stumped += 1;
-                            playerStats[bowlerCanonicalId].matchStats[matchId].wicket_stumped += 1;
-                            
-                            // Credit the stumping to the stumper if available
-                            if (batsman.catcher && batsman.catcher.id) {
-                                const stumperId = String(batsman.catcher.id || "");
-                                const stumperName = batsman.catcher.name || "";
-                                
-                                if (stumperId && stumperName) {
-                                    const stumperCanonicalId = getOrCreatePlayer(stumperId, stumperName);
-                                    
-                                    if (stumperCanonicalId && playerStats[stumperCanonicalId]) {
-                                        // Initialize stumper's match stats if needed
-                                        if (!playerStats[stumperCanonicalId].matchStats[matchId]) {
-                                            playerStats[stumperCanonicalId].matchStats[matchId] = {
-                                                runs: 0,
-                                                balls_faced: 0,
-                                                wickets: 0,
-                                                wicket_bowled: 0,
-                                                wicket_lbw: 0,
-                                                wicket_caught: 0,
-                                                wicket_stumped: 0,
-                                                wicket_other: 0,
-                                                balls_bowled: 0,
-                                                catches: 0,
-                                                run_outs: 0,
-                                                economy: 0,
-                                                high_score: 0,
-                                                strike_rate: 0,
-                                                runs_conceded: 0,
-                                                dot_balls: 0,
-                                                good_ones: 0,
-                                                fours: 0,
-                                                sixes: 0
-                                            };
-                                        }
-                                        
-                                        // Update stumping stats
-                                        playerStats[stumperCanonicalId].stumpings = (playerStats[stumperCanonicalId].stumpings || 0) + 1;
-                                        playerStats[stumperCanonicalId].matchStats[matchId].stumpings = 
-                                            (playerStats[stumperCanonicalId].matchStats[matchId].stumpings || 0) + 1;
-                                        console.log(`Credited stumping to ${stumperName}`);
-                                        
-                                        // We no longer add points here as they will be calculated in calculateMatchScore
-                                    }
-                                }
-                            }
-                        } else {
-                            playerStats[bowlerCanonicalId].wicket_other += 1;
-                            playerStats[bowlerCanonicalId].matchStats[matchId].wicket_other += 1;
-                        }
-                    }
-                }
-            }
-            
-            // Update high score if this innings is higher
-            if (runs > playerStats[canonicalId].high_score) {
-                playerStats[canonicalId].high_score = runs;
-            }
-            
-            // Update match high score
-            matchStats.high_score = runs;
-            
-            // Update strike rates
-            matchStats.strike_rate = sr;
-            if (playerStats[canonicalId].balls_faced > 0) {
-                playerStats[canonicalId].strike_rate = 
-                    (playerStats[canonicalId].runs / playerStats[canonicalId].balls_faced) * 100;
-            }
-            
+            matchStats.runs = stats.runs;
+            matchStats.balls_faced = stats.balls_faced;
+            matchStats.fours = stats.fours;
+            matchStats.sixes = stats.sixes;
+
             // Calculate the batting score contribution for this match
             // Base points: 1 point per run
-            const basePoints = runs;
-            
+            const basePoints = stats.runs;
+
             // Boundary points: 1 point per four, 2 points per six
-            const boundaryPoints = (fours * 1) + (sixes * 2);
-            
+            const boundaryPoints = (stats.fours * 1) + (stats.sixes * 2);
+
             // Milestone bonuses
             let milestoneBonus = 0;
-            if (runs >= 100) {
+            if (stats.runs >= 100) {
                 milestoneBonus = 16;
-            } else if (runs >= 50) {
+            } else if (stats.runs >= 50) {
                 milestoneBonus = 8;
-            } else if (runs >= 30) {
+            } else if (stats.runs >= 30) {
                 milestoneBonus = 4;
             }
-            
+
             // Strike rate bonus (only if player faced more than 9 balls)
             let srBonus = 0;
-            if (ballsFaced > 9) {
-                const currentSr = (runs / ballsFaced) * 100;
-                if (currentSr >= 170) {
-                    srBonus = 6;
-                } else if (currentSr >= 150) {
-                    srBonus = 4;
-                } else if (currentSr >= 130) {
-                    srBonus = 2;
-                } else if (currentSr < 50) {
+            if (stats.balls_faced > 9) {
+                const currentSr = (stats.runs / stats.balls_faced) * 100;
+                if (currentSr < 50) {
                     srBonus = -6;
                 } else if (currentSr < 60) {
                     srBonus = -4;
                 } else if (currentSr < 70) {
                     srBonus = -2;
+                } else if (currentSr >= 100 && currentSr < 120) {
+                    srBonus = 2;
+                } else if (currentSr >= 120 && currentSr < 140) {
+                    srBonus = 4;
+                } else if (currentSr >= 140) {
+                    srBonus = 6;
                 }
             }
+
+            // Calculate total batting score for this match
+            const matchBattingScore = basePoints + boundaryPoints + milestoneBonus + srBonus;
             
-            const battingScore = basePoints + boundaryPoints + milestoneBonus + srBonus;
-            console.log(`Batting score for ${batterName}: ${battingScore.toFixed(2)} (Base: ${basePoints}, Boundaries: ${boundaryPoints}, Milestone: ${milestoneBonus}, SR Bonus: ${srBonus})`);
+            // Update player's total score
+            playerStats[canonicalId].score += matchBattingScore;
             
-            // Update player's score for this match
-            matchPlayerScores[canonicalId] += battingScore;
-            
-            console.log(`Added batting stats for ${batterName}: ${runs} runs (${ballsFaced} balls), score contribution: ${battingScore.toFixed(2)}`);
+            // Update overall stats
+            playerStats[canonicalId].runs += stats.runs;
+            playerStats[canonicalId].balls_faced += stats.balls_faced;
+            playerStats[canonicalId].fours += stats.fours;
+            playerStats[canonicalId].sixes += stats.sixes;
         }
         
         // Process bowler stats
-        function processBowler(bowler, matchId, matchPlayerScores) {
-            if (!bowler || !bowler.bowler || !bowler.bowler.id) return;
+        function processBowler(player, matchId, stats) {
+            const canonicalId = player.player_id;
             
-            const bowlerId = String(bowler.bowler.id || "");
-            const bowlerName = bowler.bowler.name || "";
-            
-            if (!bowlerId || !bowlerName) return;
-            
-            // Get or create proper player ID to prevent duplicates
-            const canonicalId = getOrCreatePlayer(bowlerId, bowlerName);
-            
-            if (!canonicalId || !playerStats[canonicalId]) return;
-            
-            // Initialize match score for this player if it doesn't exist
-            matchPlayerScores[canonicalId] = matchPlayerScores[canonicalId] || 0;
-            
-            // Initialize per-match stats tracking if it doesn't exist
-            if (!playerStats[canonicalId].matchStats) {
-                playerStats[canonicalId].matchStats = {};
-            }
-            
-            // Initialize this match's stats if they don't exist
+            // Initialize match stats if not exists
             if (!playerStats[canonicalId].matchStats[matchId]) {
-                console.log(`DEBUG CATCHES: Initializing matchStats[${matchId}] for ${bowlerName} (${canonicalId}) in processBowler`); // Added log
                 playerStats[canonicalId].matchStats[matchId] = {
                     runs: 0,
                     balls_faced: 0,
-                    wickets: 0,
-                    wicket_bowled: 0,
-                    wicket_lbw: 0,
-                    wicket_caught: 0,
-                    wicket_stumped: 0,
-                    wicket_other: 0,
-                    balls_bowled: 0,
-                    catches: 0,
-                    run_outs: 0,
-                    economy: 0,
-                    high_score: 0,
-                    strike_rate: 0,
-                    runs_conceded: 0,
-                    dot_balls: 0,
-                    good_ones: 0,
                     fours: 0,
-                    sixes: 0
+                    sixes: 0,
+                    catches: 0,
+                    stumpings: 0,
+                    run_outs: 0,
+                    wickets: 0,
+                    maidens: 0,
+                    balls_bowled: 0,
+                    runs_conceded: 0,
+                    wicket_bowled: 0,
+                    wicket_lbw: 0
                 };
             }
-            
-            // Get reference to this match's stats
+
+            // Update match stats with proper null checks
             const matchStats = playerStats[canonicalId].matchStats[matchId];
-            
-            // Parse bowling stats
-            const overs = parseFloat(bowler.o || 0);
-            const wickets = parseInt(bowler.w || 0);
-            const runsConceded = parseInt(bowler.r || 0);
-            const economy = parseFloat(bowler.eco || 0);
-            const wides = parseInt(bowler.wd || 0);
-            const noBalls = parseInt(bowler.nb || 0);
-            
-            // Calculate balls bowled (6 balls per over)
-            const completedOvers = Math.floor(overs);
-            const partialOver = (overs - completedOvers) * 10;
-            const ballsBowled = completedOvers * 6 + partialOver;
-            
-            // Update overall stats
-            playerStats[canonicalId].wickets += wickets;
-            playerStats[canonicalId].balls_bowled += ballsBowled;
-            playerStats[canonicalId].runs_conceded += runsConceded;
-            
-            // Update match-specific stats
-            matchStats.wickets += wickets;
-            matchStats.balls_bowled += ballsBowled;
-            matchStats.runs_conceded += runsConceded;
-            matchStats.economy = economy;
-            
-            // Estimate dot balls using the formula: max(balls_bowled - runs_conceded / 2, 0)
-            const estimatedDotBalls = Math.max(0, ballsBowled - runsConceded / 2);
-            matchStats.dot_balls += Math.round(estimatedDotBalls);
-            playerStats[canonicalId].dot_balls += Math.round(estimatedDotBalls);
-            
-            // Calculate economy for overall stats
-            if (playerStats[canonicalId].balls_bowled >= 6) {
-                const totalOvers = Math.floor(playerStats[canonicalId].balls_bowled / 6) + 
-                    (playerStats[canonicalId].balls_bowled % 6) / 10;
-                playerStats[canonicalId].economy = 
-                    playerStats[canonicalId].runs_conceded / totalOvers;
-            }
-            
+            matchStats.wickets = stats.wickets || 0;
+            matchStats.maidens = stats.maidens || 0;
+            matchStats.balls_bowled = stats.balls_bowled || 0;
+            matchStats.runs_conceded = stats.runs_conceded || 0;
+            matchStats.wicket_bowled = stats.wicket_bowled || 0;
+            matchStats.wicket_lbw = stats.wicket_lbw || 0;
+
             // Calculate bowling score
-            // Formula: 3 * (1.5 * balls - runs) + 20 * wickets + 10 * good_ones + dot_balls + (wickets >= 3 ? 15 : 0)
-            // Note: We now calculate good_ones as the sum of bowled and lbw dismissals
-            const economyBonus = 3 * (1.5 * ballsBowled - runsConceded);
-            const wicketsBonus = wickets * 20;
-            const goodOnes = playerStats[canonicalId].wicket_bowled + playerStats[canonicalId].wicket_lbw;
-            const goodOnesBonus = goodOnes * 8;
-            const dotBallsBonus = Math.round(estimatedDotBalls);
-            const threeWicketBonus = (wickets >= 3) ? 15 : 0;
+            let bowler_score = 0;
+            if (stats.balls_bowled > 0) {
+                const wickets = stats.wickets || 0;
+                const maidens = stats.maidens || 0;
+                const balls_bowled = stats.balls_bowled;
+                const runs_conceded = stats.runs_conceded || 0;
+                
+                // Calculate overs properly to avoid division by zero
+                const overs = balls_bowled >= 6 ? Math.floor(balls_bowled / 6) + (balls_bowled % 6) / 10 : balls_bowled / 6;
+                const economy = overs > 0 ? runs_conceded / overs : 0;
+                
+                // Base points for wickets
+                bowler_score = wickets * 25;
+                
+                // Economy rate bonus/penalty (only if bowler has bowled at least 6 balls)
+                if (balls_bowled >= 6) {
+                    if (economy < 4) {
+                        bowler_score += 6;
+                    } else if (economy < 5) {
+                        bowler_score += 4;
+                    } else if (economy < 6) {
+                        bowler_score += 2;
+                    } else if (economy > 12) {
+                        bowler_score -= 6;
+                    } else if (economy > 10) {
+                        bowler_score -= 4;
+                    } else if (economy > 9) {
+                        bowler_score -= 2;
+                    }
+                }
+                
+                // Maiden over bonus
+                bowler_score += maidens * 4;
+                
+                // Wicket milestone bonuses
+                if (wickets >= 5) {
+                    bowler_score += 16;
+                } else if (wickets >= 4) {
+                    bowler_score += 8;
+                } else if (wickets >= 3) {
+                    bowler_score += 4;
+                }
+            }
+
+            // Update player's total score
+            playerStats[canonicalId].score += bowler_score;
             
-            const bowlingScore = economyBonus + wicketsBonus + goodOnesBonus + dotBallsBonus + threeWicketBonus;
-            
-            // Update player's score for this match
-            matchPlayerScores[canonicalId] += bowlingScore;
-            
-            console.log(`Added bowling stats for ${bowlerName}: ${wickets} wickets (${runsConceded} runs), score contribution: ${bowlingScore.toFixed(2)}`);
+            // Update overall stats with proper null checks
+            playerStats[canonicalId].wickets += stats.wickets || 0;
+            playerStats[canonicalId].maidens += stats.maidens || 0;
+            playerStats[canonicalId].balls_bowled += stats.balls_bowled || 0;
+            playerStats[canonicalId].runs_conceded += stats.runs_conceded || 0;
+            playerStats[canonicalId].wicket_bowled += stats.wicket_bowled || 0;
+            playerStats[canonicalId].wicket_lbw += stats.wicket_lbw || 0;
         }
         
         // Process fielder stats
@@ -1515,7 +1267,6 @@
                 
                 // Reset score
                 player.score = 0;
-                player.multiplier_count = 0;
                 
                 // Calculate score for each match and sum
                 for (const matchId in player.matchStats) {
@@ -1524,16 +1275,8 @@
                     // Calculate base score for this match
                     const matchScoreObj = calculateMatchScore(player, matchId, matchStats);
                     
-                    // Apply the extra multiplier (from teams.csv)
-                    const finalMatchScore = matchScoreObj.total * player.extra_mult;
-                    
                     // Add this match's score to total
-                    player.score += finalMatchScore;
-                    
-                    // Track multiplier count
-                    if (matchScoreObj.multiplier > 1) {
-                        player.multiplier_count++;
-                    }
+                    player.score += matchScoreObj.total;
                 }
                 
                 // Round to 2 decimal places
@@ -1542,323 +1285,155 @@
         }
         
         // Function to calculate a player's score for a single match
-        function calculateMatchScore(player, matchId, matchStats) {
-            // Parse all stats as integers, defaulting to 0
-            const runs = parseInt(matchStats.runs || 0);
-            const balls_faced = parseInt(matchStats.balls_faced || 0);
-            const fours = parseInt(matchStats.fours || 0);
-            const sixes = parseInt(matchStats.sixes || 0);
-            const wickets = parseInt(matchStats.wickets || 0);
-            const balls_bowled = parseInt(matchStats.balls_bowled || 0);
-            const runs_conceded = parseInt(matchStats.runs_conceded || 0);
-            const catches = parseInt(matchStats.catches || 0);
-            const stumpings = parseInt(matchStats.stumpings || 0);
-            const run_outs = parseInt(matchStats.run_outs || 0);
-            const wicket_bowled = parseInt(matchStats.wicket_bowled || 0);
-            const wicket_lbw = parseInt(matchStats.wicket_lbw || 0);
-            const dot_balls = parseInt(matchStats.dot_balls || 0);
-
-            // Calculate economy rate for bowlers
-            let economy = 0;
-            if (balls_bowled > 0) {
-                economy = (runs_conceded / balls_bowled) * 6;
-            }
-
-            // Calculate strike rate for batsmen
-            let strike_rate = 0;
-            if (balls_faced > 0) {
-                strike_rate = (runs / balls_faced) * 100;
-            }
-
-            // Initialize scores
-            let batting_score = 0;
-            let bowling_score = 0;
-            let fielding_score = 0;
-            let multiplier = 1;
-
-            // Batting points
-            if (runs > 0) {
-                // Base points: 1 point per run
-                batting_score = runs;
-
-                // Boundary points: 1 point per four, 2 points per six
-                batting_score += (fours * 1) + (sixes * 2);
-
+        function calculateMatchScore(player, matchId, stats) {
+            // Batting score
+            let batsman_score = 0;
+            if (stats.balls_faced > 0) {
+                // Base points (1 point per run)
+                batsman_score = stats.runs || 0;
+                
+                // Boundary points (1 point per four, 2 points per six)
+                const boundaryPoints = ((stats.fours || 0) * 1) + ((stats.sixes || 0) * 2);
+                batsman_score += boundaryPoints;
+                
                 // Milestone bonuses
-                if (runs >= 100) {
-                    batting_score += 16; // 16 points for century
-                } else if (runs >= 50) {
-                    batting_score += 8; // 8 points for half-century
-                } else if (runs >= 30) {
-                    batting_score += 4; // 4 points for 30+ runs
+                if (stats.runs >= 100) {
+                    batsman_score += 16;  // 100+ runs bonus
+                } else if (stats.runs >= 50) {
+                    batsman_score += 8;   // 50+ runs bonus
+                } else if (stats.runs >= 30) {
+                    batsman_score += 4;   // 30+ runs bonus
                 }
-
-                // Strike rate bonus (only if faced more than 9 balls)
-                if (balls_faced > 9) {
-                    if (strike_rate > 170) {
-                        batting_score += 6; // +6 points for SR > 170
-                    } else if (strike_rate > 150) {
-                        batting_score += 4; // +4 points for SR > 150
-                    } else if (strike_rate > 130) {
-                        batting_score += 2; // +2 points for SR > 130
-                    } else if (strike_rate < 70) {
-                        batting_score -= 6; // -6 points for SR < 70
-                    } else if (strike_rate < 85) {
-                        batting_score -= 4; // -4 points for SR < 85
-                    } else if (strike_rate < 100) {
-                        batting_score -= 2; // -2 points for SR < 100
+                
+                // Strike rate bonus (only if player faced more than 9 balls)
+                if (stats.balls_faced > 9) {
+                    const currentSr = (stats.runs / stats.balls_faced) * 100;
+                    if (currentSr < 50) {
+                        batsman_score -= 6;
+                    } else if (currentSr < 60) {
+                        batsman_score -= 4;
+                    } else if (currentSr < 70) {
+                        batsman_score -= 2;
+                    } else if (currentSr >= 100 && currentSr < 120) {
+                        batsman_score += 2;
+                    } else if (currentSr >= 120 && currentSr < 140) {
+                        batsman_score += 4;
+                    } else if (currentSr >= 140) {
+                        batsman_score += 6;
                     }
                 }
             }
-
-            // Bowling points
-            if (wickets > 0) {
-                // Base points for wickets
-                bowling_score = wickets * 25; // 25 points per wicket
+            
+            // Bowling score
+            let bowler_score = 0;
+            if (stats.balls_bowled > 0) {
+                const wickets = stats.wickets || 0;
+                const maidens = stats.maidens || 0;
+                const balls_bowled = stats.balls_bowled;
+                const runs_conceded = stats.runs_conceded || 0;
                 
-                // Economy rate bonus/penalty
-                if (economy > 12) {
-                    bowling_score -= 6; // -6 points for economy > 12
-                } else if (economy > 10) {
-                    bowling_score -= 4; // -4 points for economy > 10
-                } else if (economy > 8) {
-                    bowling_score -= 2; // -2 points for economy > 8
-                } else if (economy < 4) {
-                    bowling_score += 6; // +6 points for economy < 4
-                } else if (economy < 6) {
-                    bowling_score += 4; // +4 points for economy < 6
-                } else if (economy < 8) {
-                    bowling_score += 2; // +2 points for economy < 8
+                // Calculate overs properly to avoid division by zero
+                const overs = balls_bowled >= 6 ? Math.floor(balls_bowled / 6) + (balls_bowled % 6) / 10 : balls_bowled / 6;
+                const economy = overs > 0 ? runs_conceded / overs : 0;
+                
+                // Base points for wickets
+                bowler_score = wickets * 25;
+                
+                // Economy rate bonus/penalty (only if bowler has bowled at least 6 balls)
+                if (balls_bowled >= 6) {
+                    if (economy < 4) {
+                        bowler_score += 6;
+                    } else if (economy < 5) {
+                        bowler_score += 4;
+                    } else if (economy < 6) {
+                        bowler_score += 2;
+                    } else if (economy > 12) {
+                        bowler_score -= 6;
+                    } else if (economy > 10) {
+                        bowler_score -= 4;
+                    } else if (economy > 9) {
+                        bowler_score -= 2;
+                    }
                 }
                 
-                // Additional bonuses
-                // Good ones bonus: 8 points per bowled or lbw
-                const goodOnes = wicket_bowled + wicket_lbw;
-                bowling_score += goodOnes * 8;
+                // Maiden over bonus
+                bowler_score += maidens * 4;
                 
                 // Wicket milestone bonuses
-                if (wickets >= 3) {
-                    bowling_score += 4; // +4 points for 3+ wickets
-                }
-                if (wickets >= 4) {
-                    bowling_score += 8; // +8 points for 4+ wickets
-                }
                 if (wickets >= 5) {
-                    bowling_score += 16; // +16 points for 5+ wickets
+                    bowler_score += 16;
+                } else if (wickets >= 4) {
+                    bowler_score += 8;
+                } else if (wickets >= 3) {
+                    bowler_score += 4;
                 }
             }
-
-            // Fielding points
-            fielding_score = (catches * 10) + (stumpings * 15) + (run_outs * 20);
-
+            
+            // Fielding score
+            let fielding_score = 0;
+            const catches = stats.catches || 0;
+            const stumpings = stats.stumpings || 0;
+            const run_outs = stats.run_outs || 0;
+            
+            fielding_score = catches * 8 + stumpings * 12 + run_outs * 6;
+            
             // Calculate total score
-            const total_score = batting_score + bowling_score + fielding_score;
-
-            // Return score breakdown
-            return {
-                total: total_score,
-                batting: batting_score,
-                bowling: bowling_score,
-                fielding: fielding_score
-            };
+            const total_score = batsman_score + bowler_score + fielding_score;
+            
+            return { total: total_score };
         }
 
         // Function to display player table
         function displayPlayerTable() {
-            console.log("Displaying player table");
-            const container = document.getElementById('player-table-container');
-            
-            // Get all players and sort by score (descending), excluding players with "Unknown" owner
-            const players = Object.values(playerStats)
-                .filter(player => player.owner !== "Unknown")
-                .sort((a, b) => b.score - a.score);
-            
-            // Create table HTML
-            let tableHtml = `
-                <table>
-                    <thead>
-                        <tr>
-                            <th>Rank</th>
-                            <th>Player</th>
-                            <th>Owner</th>
-                            <th>Runs</th>
-                            <th>Balls</th>
-                            <th>4s</th>
-                            <th>6s</th>
-                            <th>Wickets</th>
-                            <th>Field</th>
-                            <th>Mult</th>
-                            <th>Score</th>
-                        </tr>
-                    </thead>
-                    <tbody>
-            `;
-            
-            // Add player rows
-            players.forEach((player, index) => {
-                // Add a highlight for players who got the multiplier
-                const rowClass = player.multipliedMatches && player.multipliedMatches.length > 0 ? 
-                    'style="background-color: #ffffd0;"' : '';
-                
-                // Show multiplier count instead of just a star
-                const multiplierCount = player.multiplier_count || 0;
-                
-                // Get stumpings or default to 0
-                const stumpings = player.stumpings || 0;
-                
-                // Combine stumpings, catches and run outs
-                const fieldingContributions = stumpings + player.catches + player.run_outs;
-                
-                // Format extra multiplier display
-                const extraMultDisplay = player.extra_mult !== 1.0 ? `×${player.extra_mult.toFixed(1)}` : '-';
+            const tableBody = document.getElementById('playerTableBody');
+            tableBody.innerHTML = '';
+
+            // Convert playerStats object to array and sort by score
+            const players = Object.values(playerStats).sort((a, b) => b.score - a.score);
+
+            players.forEach(player => {
+                const row = document.createElement('tr');
                 
                 // Ensure score is rounded to 1 decimal place for display
                 const roundedScore = player.score.toFixed(1);
                 
-                tableHtml += `
-                    <tr ${rowClass}>
-                        <td>${index + 1}</td>
-                        <td>${player.player_name}</td>
-                        <td>${player.owner}</td>
-                        <td>${player.runs}</td>
-                        <td>${player.balls_faced}</td>
-                        <td>${player.fours || 0}</td>
-                        <td>${player.sixes || 0}</td>
-                        <td>${player.wickets}</td>
-                        <td>${fieldingContributions}</td>
-                        <td>${multiplierCount}</td>
-                        <td>${extraMultDisplay}</td>
-                        <td><strong>${roundedScore}</strong></td>
-                    </tr>
+                row.innerHTML = `
+                    <td>${player.player_name}</td>
+                    <td>${player.owner}</td>
+                    <td>${roundedScore}</td>
                 `;
+                
+                tableBody.appendChild(row);
             });
-            
-            tableHtml += `
-                    </tbody>
-                </table>
-                <div class="stats-info">
-                    Matches processed: ${matchesProcessed} | Players: ${players.length}
-                </div>
-            `;
-            
-            // Update the container
-            container.innerHTML = tableHtml;
         }
 
         // Function to display the team dashboard
         function displayTeamDashboard() {
-            console.log("Displaying team dashboard");
-            const container = document.getElementById('team-dashboard');
+            const dashboardDiv = document.getElementById('teamDashboard');
+            if (!dashboardDiv) return;
+
+            const teamScores = calculateTeamScores();
+            let html = '<h2>Team Dashboard</h2>';
             
-            // Group players by owner
-            const teamsByOwner = {};
+            // Sort teams by total score
+            const sortedTeams = Object.entries(teamScores)
+                .sort(([, a], [, b]) => b.total - a.total);
             
-            // Filter out players with "Unknown" owner
-            Object.values(playerStats)
-                .filter(player => player.owner !== "Unknown")
-                .forEach(player => {
-                    if (!teamsByOwner[player.owner]) {
-                        teamsByOwner[player.owner] = [];
-                    }
-                    teamsByOwner[player.owner].push(player);
-                });
-            
-            // Calculate team scores
-            const teams = [];
-            
-            for (const owner in teamsByOwner) {
-                const players = teamsByOwner[owner];
-                const totalScore = players.reduce((sum, player) => sum + player.score, 0);
-                
-                teams.push({
-                    owner: owner,
-                    players: players,
-                    totalScore: totalScore.toFixed(1)  // Round team score to 1 decimal place
-                });
-            }
-            
-            // Sort teams by total score (descending)
-            teams.sort((a, b) => parseFloat(b.totalScore) - parseFloat(a.totalScore));
-            
-            // Create dashboard HTML
-            let dashboardHtml = `
-                <h2>Team Dashboard</h2>
-                <div class="accordion-container">
-            `;
-            
-            teams.forEach((team, index) => {
-                // Sort team players by score
-                team.players.sort((a, b) => b.score - a.score);
-                
-                // Get the top player (highest scorer)
-                const topPlayer = team.players[0];
-                
-                // Calculate number of multiplier bonuses in the team
-                const teamMultiplierCount = team.players.reduce((sum, player) => sum + (player.multiplier_count || 0), 0);
-                
-                // Create unique ID for each team's content
-                const teamId = `team-${index}`;
-                
-                dashboardHtml += `
-                    <div class="team-accordion">
-                        <div class="team-header" onclick="toggleTeamDetails('${teamId}')">
-                            <div>
-                                <h3>${index + 1}. ${team.owner} - ${team.totalScore} points</h3>
-                                <p class="team-summary">
-                                    ${team.players.length} players | 
-                                    Top: ${topPlayer ? topPlayer.player_name + ' (' + topPlayer.score.toFixed(1) + ')' : 'None'} | 
-                                    Total 1.3× bonuses: ${teamMultiplierCount}
-                                </p>
-                            </div>
-                            <span class="expand-icon" id="${teamId}-icon">+</span>
-                        </div>
-                        <div class="team-content" id="${teamId}" style="display: none;">
-                            <table>
-                                <thead>
-                                    <tr>
-                                        <th>Player</th>
-                                        <th>Matches</th>
-                                        <th>Total</th>
-                                        <th>Avg</th>
-                                    </tr>
-                                </thead>
-                                <tbody>
-                `;
-                
-                team.players.forEach(player => {
-                    // Show multiplier count
-                    const multiplierCount = player.multiplier_count || 0;
-                    
-                    // Format extra multiplier display
-                    const extraMultDisplay = player.extra_mult !== 1.0 ? `×${player.extra_mult.toFixed(1)}` : '-';
-                    
-                    // Ensure score is rounded to 1 decimal place for display
-                    const roundedScore = player.score.toFixed(1);
-                    
-                    dashboardHtml += `
-                        <tr>
-                            <td>${player.player_name}</td>
-                            <td>${multiplierCount}</td>
-                            <td>${extraMultDisplay}</td>
-                            <td>${roundedScore}</td>
-                        </tr>
-                    `;
-                });
-                
-                dashboardHtml += `
-                                </tbody>
-                            </table>
-                        </div>
+            html += '<div class="team-scores">';
+            sortedTeams.forEach(([teamName, scores]) => {
+                html += `
+                    <div class="team-score-card">
+                        <h3>${teamName}</h3>
+                        <p>Total Score: ${scores.total.toFixed(1)}</p>
+                        <p>Batting Score: ${scores.batting.toFixed(1)}</p>
+                        <p>Bowling Score: ${scores.bowling.toFixed(1)}</p>
+                        <p>Fielding Score: ${scores.fielding.toFixed(1)}</p>
                     </div>
                 `;
             });
+            html += '</div>';
             
-            dashboardHtml += `
-                </div>
-            `;
-            
-            // Update the container
-            container.innerHTML = dashboardHtml;
+            dashboardDiv.innerHTML = html;
         }
 
         // Function to toggle team details visibility
@@ -2011,7 +1586,7 @@
                 
                 // Check if player got multiplier for this match
                 const gotMultiplier = matchStats.is_highest_scorer;
-                const multiplierIcon = gotMultiplier ? '🌟 (1.3× bonus applied)' : '';
+                const multiplierIcon = gotMultiplier ? '🌟 (1× bonus applied)' : '';
                 
                 // Calculate good_ones as the sum of bowled and LBW wickets
                 const good_ones = matchStats.wicket_bowled + matchStats.wicket_lbw;
