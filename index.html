@@ -1692,9 +1692,16 @@
         // Check for key parameter on page load
         window.addEventListener('DOMContentLoaded', function() {
             const urlParams = new URLSearchParams(window.location.search);
+            const container = document.querySelector('.container');
+            
+            if (!container) {
+                console.error("Container element not found");
+                return;
+            }
+
             if (!urlParams.has('key') || urlParams.get('key').trim() === '') {
                 console.warn("No 'key' parameter found in URL. The API calls will fail.");
-                document.querySelector('.container').innerHTML = `
+                container.innerHTML = `
                     <div style="text-align:center; padding:30px; background-color:#fff3cd; border-radius:5px; margin:20px auto; max-width:600px;">
                         <h3>⚠️ Missing API Key</h3>
                         <p>You need to add your CricAPI key as a URL parameter.</p>
@@ -1708,46 +1715,9 @@
 
         // Function to clear the cache and perform a full refresh
         function clearCache() {
-            if (confirm('Are you sure you want to clear the cache? This will delete all stored match data and perform a full refresh.')) {
-                try {
-                    // Clear the localStorage items
-                    localStorage.removeItem('cachedMatchData');
-                    localStorage.removeItem('cacheMetadata');
-                    
-                    // Reset in-memory cache
-                    cachedMatchData = {};
-                    // lastMatchId is not really used with this strategy, can be kept null or removed later
-                    lastMatchId = null; 
-                    
-                    // Update cache status immediately
-                    updateCacheStatus(false);
-                    
-                    // Show a message and trigger full refresh
-                    document.getElementById('loading').style.display = 'block';
-                    document.getElementById('loading').textContent = 'Cache cleared! Performing full refresh...';
-                    document.getElementById('error-container').innerHTML = ''; // Clear previous errors
-                    
-                    // Disable refresh/clear buttons during refresh? (Optional but good UX)
-                    // const clearButton = document.querySelector('.clear-cache-btn');
-                    // if (clearButton) clearButton.disabled = true;
-
-                    // Perform a full refresh by calling fetchMatches again
-                    fetchData(false) // Pass false just for consistency, though it's ignored now
-                        .catch(err => console.error("Error during refresh after cache clear:", err)) // Log potential errors during the refresh
-                        .finally(() => {
-                             // Re-enable buttons if they were disabled
-                             // if (clearButton) clearButton.disabled = false;
-                            console.log('Full refresh after cache clear completed.');
-                        });
-                    
-                    console.log('Cache cleared successfully, initiated refresh.');
-                } catch (error) {
-                    console.error('Error clearing cache:', error);
-                    alert('An error occurred while clearing the cache. Please try again.');
-                    // Ensure loading message is hidden if clearing fails badly
-                     document.getElementById('loading').style.display = 'none';
-                }
-            }
+            localStorage.removeItem('matchData');
+            localStorage.removeItem('lastRefreshTime');
+            location.reload();
         }
 
         // Helper function to find players by name variations
