@@ -1151,11 +1151,43 @@
             }
             
             // Calculate the batting score contribution for this match
-            // Formula: runs + (sr - 150) * max(runs, balls) + milestone bonuses
-            const srBonus = (sr / 100 - 1.5) * Math.max(runs, ballsFaced);
-            const milestoneBonus = (runs >= 50 ? 8 : 0) + (runs >= 100 ? 8 : 0);
-            const battingScore = runs + srBonus + milestoneBonus;
-            console.log(`Batting score for ${batterName}: ${battingScore.toFixed(2)}: ${srBonus.toFixed(2)}: ${milestoneBonus.toFixed(2)} ${runs} ${ballsFaced}`);
+            // Base points: 1 point per run
+            const basePoints = runs;
+            
+            // Boundary points: 1 point per four, 2 points per six
+            const boundaryPoints = (fours * 1) + (sixes * 2);
+            
+            // Milestone bonuses
+            let milestoneBonus = 0;
+            if (runs >= 100) {
+                milestoneBonus = 16;
+            } else if (runs >= 50) {
+                milestoneBonus = 8;
+            } else if (runs >= 30) {
+                milestoneBonus = 4;
+            }
+            
+            // Strike rate bonus (only if player faced more than 9 balls)
+            let srBonus = 0;
+            if (ballsFaced > 9) {
+                const currentSr = (runs / ballsFaced) * 100;
+                if (currentSr >= 170) {
+                    srBonus = 6;
+                } else if (currentSr >= 150) {
+                    srBonus = 4;
+                } else if (currentSr >= 130) {
+                    srBonus = 2;
+                } else if (currentSr < 50) {
+                    srBonus = -6;
+                } else if (currentSr < 60) {
+                    srBonus = -4;
+                } else if (currentSr < 70) {
+                    srBonus = -2;
+                }
+            }
+            
+            const battingScore = basePoints + boundaryPoints + milestoneBonus + srBonus;
+            console.log(`Batting score for ${batterName}: ${battingScore.toFixed(2)} (Base: ${basePoints}, Boundaries: ${boundaryPoints}, Milestone: ${milestoneBonus}, SR Bonus: ${srBonus})`);
             
             // Update player's score for this match
             matchPlayerScores[canonicalId] += battingScore;
@@ -1532,21 +1564,63 @@
                 // Calculate good ones as the sum of bowled and lbw dismissals
                 const good_ones = stats.wicket_bowled + stats.wicket_lbw;
                 
-                bowlers_score = 3 * (1.5 * stats.balls_bowled - stats.runs_conceded) + 
-                              stats.wickets * 20 + good_ones * 10 + 
-                              (stats.wickets >= 3 ? 15 : 0) + stats.dot_balls;
+                // Base points for wickets
+                const wicketsPoints = stats.wickets * 25;
+                
+                // Good ones bonus
+                const goodOnesBonus = good_ones * 8;
+                
+                // Wicket milestone bonuses
+                let wicketMilestoneBonus = 0;
+                if (stats.wickets >= 5) {
+                    wicketMilestoneBonus = 16;
+                } else if (stats.wickets >= 4) {
+                    wicketMilestoneBonus = 8;
+                } else if (stats.wickets >= 3) {
+                    wicketMilestoneBonus = 4;
+                }
+                
+                // Economy bonus
+                let economyBonus = 0;
+                if (stats.economy < 5) {
+                    economyBonus = 6;
+                } else if (stats.economy < 6) {
+                    economyBonus = 4;
+                } else if (stats.economy < 7) {
+                    economyBonus = 2;
+                } else if (stats.economy >= 10 && stats.economy < 11) {
+                    economyBonus = -2;
+                } else if (stats.economy >= 11 && stats.economy < 12) {
+                    economyBonus = -4;
+                } else if (stats.economy >= 12) {
+                    economyBonus = -6;
+                }
+                
+                bowlers_score = wicketsPoints + goodOnesBonus + wicketMilestoneBonus + economyBonus;
             }
             
-            // Fielding score (catches, stumpings, and run-outs)
-            const stumpings = stats.stumpings || 0;
-            const fielding_score = (stats.catches + stats.run_outs + stumpings) * 10;
+            // Fielding score
+            let fielding_score = 0;
             
-            // console.log(`DEBUG CATCHES: ${stats.player_name} calculateMatchScore - Catches: ${stats.catches}, Run Outs: ${stats.run_outs}, Stumpings: ${stumpings}, Fielding Score: ${fielding_score}`); // Old incorrect log
-            console.log(`DEBUG CATCHES: calculateMatchScore - Stats Input:`, stats); // Log the whole input object
-            console.log(`DEBUG CATCHES: ${player.player_name} (${player.player_id}) in match ${matchId} - calculateMatchScore - Final Fielding Values - Catches: ${stats.catches}, Run Outs: ${stats.run_outs}, Stumpings: ${stumpings}, Fielding Score: ${fielding_score}`); // Log with player name/ID and match ID
+            // Catches (8 points each)
+            const catchesPoints = (stats.catches || 0) * 8;
+            
+            // Catch milestone bonus (4 points for 3 catches)
+            const catchMilestoneBonus = (stats.catches >= 3) ? 4 : 0;
+            
+            // Stumpings (12 points each)
+            const stumpingsPoints = (stats.stumpings || 0) * 12;
+            
+            // Run outs (12 points for direct, 6 for indirect)
+            // Note: We'll assume all run outs are direct unless specified otherwise
+            const runOutsPoints = (stats.run_outs || 0) * 12;
+            
+            fielding_score = catchesPoints + catchMilestoneBonus + stumpingsPoints + runOutsPoints;
+            
+            console.log(`DEBUG CATCHES: ${player.player_name} (${player.player_id}) in match ${matchId} - calculateMatchScore - Final Fielding Values - Catches: ${stats.catches}, Run Outs: ${stats.run_outs}, Stumpings: ${stats.stumpings}, Fielding Score: ${fielding_score}`);
 
             // Final score for this match
-            return batsman_score + bowlers_score + fielding_score + 4;
+            return batsman_score + bowlers_score + fielding_score;
         }
 
         // Function to display player table
